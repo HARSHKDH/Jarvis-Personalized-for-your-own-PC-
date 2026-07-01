@@ -1,0 +1,13 @@
+{
+  "name": "jarvis-assistant",
+  "version": "1.0.0",
+  "description": "J.A.R.V.I.S. — System-Level Background Assistant",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "dev": "electron . --inspect --no-sandbox"
+  },
+  "dependencies": {
+    "electron": "^31.0.0"
+  }
+}

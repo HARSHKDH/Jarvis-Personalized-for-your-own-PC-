@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self' http://localhost:5000 https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; media-src *; connect-src *;" />
+<title>JARVIS Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html, body {
+  width:100%; height:100%;
+  background:transparent;
+  overflow:hidden;
+  font-family:'Inter', sans-serif;
+  -webkit-app-region: no-drag;
+  user-select:none;
+}
+
+/* ── Hidden camera ── */
+#cam { position:fixed; top:0; left:0; width:1px; height:1px; opacity:0; pointer-events:none; }
+
+/* ═══════════════════════════════════════════
+   GREETING BUBBLE
+═══════════════════════════════════════════ */
+#greeting {
+  display:none;
+  position:fixed; bottom:8px; right:8px;
+  width:322px;
+  background:linear-gradient(135deg, rgba(6,12,26,0.97), rgba(0,8,20,0.98));
+  border-radius:16px 16px 4px 16px;
+  padding:14px 16px 14px 14px;
+  backdrop-filter:blur(20px);
+  animation: bubbleIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  transform-origin: bottom right;
+}
+#greeting.ok  { border:1px solid rgba(52,211,153,0.3); box-shadow:0 0 28px rgba(52,211,153,0.15), 0 16px 48px rgba(0,0,0,0.7); }
+#greeting.fail{ border:1px solid rgba(248,113,113,0.3); box-shadow:0 0 28px rgba(248,113,113,0.15), 0 16px 48px rgba(0,0,0,0.7); }
+
+.g-header { display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+.g-dot { width:7px; height:7px; border-radius:50%; animation:dotPulse 1.6s ease-in-out infinite; flex-shrink:0; }
+.ok  .g-dot { background:#34d399; box-shadow:0 0 8px #34d399; }
+.fail .g-dot { background:#f87171; box-shadow:0 0 8px #f87171; }
+.g-label { font-family:'Share Tech Mono',monospace; font-size:8.5px; letter-spacing:.22em; font-weight:700; }
+.ok  .g-label { color:#34d399; }
+.fail .g-label { color:#f87171; }
+.g-text { font-family:'Share Tech Mono',monospace; font-size:12.5px; color:rgba(255,255,255,.86); line-height:1.55; min-height:18px; }
+.g-cursor { display:inline-block; width:1.5px; height:13px; margin-left:2px; vertical-align:middle; animation:blink .65s ease-in-out infinite; }
+.ok  .g-cursor { background:#34d399; }
+.fail .g-cursor { background:#f87171; }
+.g-tail1 { position:absolute; bottom:-8px; right:18px; width:0; height:0; border-left:9px solid transparent; }
+.g-tail2 { position:absolute; bottom:-6px; right:19px; width:0; height:0; border-left:8px solid transparent; border-top:8px solid rgba(6,12,26,.97); }
+.ok  .g-tail1 { border-top:9px solid rgba(52,211,153,.3); }
+.fail .g-tail1 { border-top:9px solid rgba(248,113,113,.3); }
+
+/* ═══════════════════════════════════════════
+   MINI PILL (unlocked)
+═══════════════════════════════════════════ */
+#mini {
+  display:none;
+  position:fixed; bottom:8px; right:8px;
+  width:184px; height:34px;
+  background:linear-gradient(135deg,rgba(0,20,40,.93),rgba(0,10,25,.96));
+  border:1px solid rgba(0,212,255,.22);
+  border-radius:30px;
+  padding:0 14px;
+  align-items:center; gap:9px;
+  cursor:pointer;
+  box-shadow:0 4px 20px rgba(0,0,0,.4);
+  transition:border-color .3s, box-shadow .3s;
+  -webkit-app-region: no-drag;
+  transform-origin: bottom right;
+}
+#mini:hover { border-color:rgba(0,212,255,.45); box-shadow:0 0 18px rgba(0,212,255,.2),0 4px 20px rgba(0,0,0,.5); }
+.mini-dot { width:8px; height:8px; border-radius:50%; background:#00d4ff; box-shadow:0 0 6px #00d4ff; animation:dotPulse 2s ease-in-out infinite; flex-shrink:0; -webkit-app-region:no-drag; }
+.mini-label { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(0,212,255,.8); letter-spacing:.15em; flex:1; }
+.mini-mic { font-size:9px; color:rgba(0,212,255,.4); -webkit-app-region:no-drag; }
+/* Listening state on mini pill */
+#mini.listening { border-color:rgba(0,212,255,.6); box-shadow:0 0 22px rgba(0,212,255,.3),0 4px 20px rgba(0,0,0,.5); }
+#mini.listening .mini-dot { background:#00ffcc; box-shadow:0 0 10px #00ffcc; animation:listenPulse 0.8s ease-in-out infinite; }
+#mini.listening .mini-mic { color:rgba(0,212,255,.9); }
+
+/* ═══════════════════════════════════════════
+   LOCKED PILL
+═══════════════════════════════════════════ */
+#locked {
+  display:none;
+  position:fixed; bottom:8px; right:8px;
+  width:152px; height:34px;
+  background:linear-gradient(135deg,rgba(30,5,5,.94),rgba(20,0,0,.96));
+  border:1px solid rgba(248,113,113,.4);
+  border-radius:30px;
+  padding:0 14px;
+  align-items:center; gap:9px;
+  cursor:pointer;
+  box-shadow:0 0 14px rgba(248,113,113,.15),0 4px 20px rgba(0,0,0,.5);
+  animation:lockedPulse 3s ease-in-out infinite;
+  -webkit-app-region: no-drag;
+  transform-origin: bottom right;
+}
+.lock-icon { font-size:10px; color:rgba(248,113,113,.85); -webkit-app-region:no-drag; }
+.lock-label { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(248,113,113,.8); letter-spacing:.15em; }
+.lock-mic { font-size:9px; color:rgba(248,113,113,.35); -webkit-app-region:no-drag; }
+
+/* Rescanning state on locked */
+#locked.scanning {
+  border-color:rgba(251,191,36,.45);
+  box-shadow:0 0 16px rgba(251,191,36,.2), 0 4px 20px rgba(0,0,0,.5);
+  animation:none;
+}
+#locked.scanning .lock-icon { color:transparent; }
+#locked.scanning .lock-label { color:rgba(251,191,36,.8); }
+.spinner {
+  display:none;
+  width:10px; height:10px; border-radius:50%;
+  border:1.5px solid rgba(251,191,36,.8);
+  border-top-color:transparent;
+  animation:spin .9s linear infinite;
+  flex-shrink:0;
+}
+#locked.scanning .spinner { display:block; }
+#locked.scanning .lock-icon-wrap { display:none; }
+
+/* ═══════════════════════════════════════════
+   CHAT PANEL
+═══════════════════════════════════════════ */
+#chat {
+  display:none;
+  position:fixed; bottom:8px; right:8px;
+  width:354px; height:462px;
+  background:linear-gradient(160deg,rgba(4,10,24,.97),rgba(0,6,18,.98));
+  border:1px solid rgba(0,212,255,.18);
+  border-radius:16px;
+  flex-direction:column;
+  overflow:hidden;
+  box-shadow:0 0 40px rgba(0,212,255,.1), 0 20px 60px rgba(0,0,0,.7);
+  -webkit-app-region: no-drag;
+  transform-origin: bottom right;
+}
+
+.chat-header {
+  display:flex; align-items:center; gap:10px;
+  padding:12px 16px;
+  border-bottom:1px solid rgba(0,212,255,.1);
+  background:rgba(0,212,255,.04);
+  flex-shrink:0;
+  -webkit-app-region:drag;
+}
+.chat-dot { width:8px; height:8px; border-radius:50%; background:#00d4ff; box-shadow:0 0 8px #00d4ff; animation:dotPulse 2s ease-in-out infinite; flex-shrink:0; }
+.chat-title { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(0,212,255,.8); letter-spacing:.18em; flex:1; }
+.chat-close { 
+  background:none; border:none; color:rgba(0,212,255,.4); font-size:14px; cursor:pointer; 
+  padding:2px 6px; border-radius:4px; transition:color .2s;
+  -webkit-app-region:no-drag;
+}
+.chat-close:hover { color:rgba(0,212,255,.9); }
+
+/* Voice status bar */
+.chat-voice-bar {
+  display:flex; align-items:center; gap:6px;
+  padding:4px 16px;
+  background:rgba(0,212,255,.03);
+  border-bottom:1px solid rgba(0,212,255,.06);
+  flex-shrink:0;
+  -webkit-app-region:no-drag;
+}
+.voice-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:#00d4ff; opacity:.3;
+  transition:all .3s;
+}
+.voice-dot.active { opacity:1; background:#00ffcc; box-shadow:0 0 6px #00ffcc; animation:listenPulse .8s ease-in-out infinite; }
+.voice-status-text { font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(0,212,255,.35); letter-spacing:.08em; flex:1; transition:color .3s; }
+.voice-status-text.active { color:rgba(0,255,200,.7); }
+
+.chat-status {
+  padding:4px 16px 2px;
+  font-family:'Share Tech Mono',monospace; font-size:9px; color:rgba(0,212,255,.4);
+  letter-spacing:.1em; min-height:20px; flex-shrink:0;
+}
+
+.chat-messages {
+  flex:1; overflow-y:auto; padding:10px 14px;
+  display:flex; flex-direction:column; gap:8px;
+  -webkit-app-region:no-drag;
+}
+.chat-messages::-webkit-scrollbar { width:3px; }
+.chat-messages::-webkit-scrollbar-thumb { background:rgba(0,212,255,.2); border-radius:2px; }
+
+.msg { max-width:86%; display:flex; flex-direction:column; gap:3px; }
+.msg.user { align-self:flex-end; }
+.msg.jarvis { align-self:flex-start; }
+.msg-bubble {
+  padding:8px 12px; border-radius:12px;
+  font-size:12px; line-height:1.5; word-break:break-word;
+}
+.msg.user .msg-bubble {
+  background:rgba(0,212,255,.15);
+  border:1px solid rgba(0,212,255,.2);
+  color:rgba(255,255,255,.9);
+  border-radius:12px 12px 4px 12px;
+}
+.msg.jarvis .msg-bubble {
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  color:rgba(255,255,255,.82);
+  border-radius:4px 12px 12px 12px;
+}
+.msg-label { font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(255,255,255,.3); letter-spacing:.1em; padding:0 4px; }
+
+/* Voice transcript preview */
+.msg.interim .msg-bubble {
+  background:rgba(0,212,255,.06);
+  border:1px dashed rgba(0,212,255,.15);
+  color:rgba(255,255,255,.45);
+  font-style:italic;
+}
+
+.chat-thinking {
+  display:flex; align-items:center; gap:6px;
+  padding:10px 14px 4px;
+  -webkit-app-region:no-drag;
+}
+.thinking-dots span {
+  display:inline-block; width:5px; height:5px; border-radius:50%;
+  background:#00d4ff; margin:0 2px;
+  animation:thinkDot .8s ease-in-out infinite;
+}
+.thinking-dots span:nth-child(2) { animation-delay:.15s; }
+.thinking-dots span:nth-child(3) { animation-delay:.3s; }
+.thinking-label { font-family:'Share Tech Mono',monospace; font-size:9px; color:rgba(0,212,255,.5); letter-spacing:.08em; }
+
+.chat-form {
+  display:flex; align-items:center; gap:8px;
+  padding:10px 12px;
+  border-top:1px solid rgba(0,212,255,.1);
+  flex-shrink:0;
+  -webkit-app-region:no-drag;
+}
+.chat-input {
+  flex:1; background:rgba(0,212,255,.06);
+  border:1px solid rgba(0,212,255,.15);
+  border-radius:20px;
+  padding:7px 14px;
+  font-family:'Inter',sans-serif; font-size:12px; color:rgba(255,255,255,.88);
+  outline:none; transition:border-color .2s;
+}
+.chat-input:focus { border-color:rgba(0,212,255,.35); }
+.chat-input::placeholder { color:rgba(255,255,255,.25); }
+.chat-send {
+  width:30px; height:30px; border-radius:50%;
+  background:rgba(0,212,255,.15); border:1px solid rgba(0,212,255,.25);
+  color:rgba(0,212,255,.8); font-size:13px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .2s;
+}
+.chat-send:hover { background:rgba(0,212,255,.25); color:#00d4ff; }
+.chat-mic {
+  width:30px; height:30px; border-radius:50%;
+  background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  color:rgba(255,255,255,.4); font-size:12px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all .2s;
+}
+.chat-mic.recording { background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.35); color:#f87171; animation:recPulse 1s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes bubbleIn  { from{opacity:0;transform:scale(.15) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes bubbleOut { from{opacity:1;transform:scale(1) translateY(0)} to{opacity:0;transform:scale(.08) translateY(16px)} }
+@keyframes shrinkToPill { 
+  0%   { opacity:1; transform:scale(1) translateY(0); }
+  60%  { opacity:0.8; transform:scale(0.4) translateY(4px); }
+  100% { opacity:0; transform:scale(0.05) translateY(14px); }
+}
+@keyframes pillBounceIn {
+  0%   { opacity:0; transform:scale(0.05); }
+  60%  { opacity:1; transform:scale(1.12); }
+  80%  { transform:scale(0.95); }
+  100% { opacity:1; transform:scale(1); }
+}
+@keyframes dotPulse  { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(1.3)} }
+@keyframes listenPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.5)} }
+@keyframes blink     { 0%,100%{opacity:1} 50%{opacity:0} }
+@keyframes lockedPulse {
+  0%,100%{box-shadow:0 0 14px rgba(248,113,113,.15),0 4px 20px rgba(0,0,0,.5)}
+  50%{box-shadow:0 0 24px rgba(248,113,113,.35),0 4px 20px rgba(0,0,0,.5)}
+}
+@keyframes spin      { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+@keyframes thinkDot  { 0%,80%,100%{transform:scale(0);opacity:.3} 40%{transform:scale(1);opacity:1} }
+@keyframes recPulse  { 0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,.4)} 50%{box-shadow:0 0 0 6px rgba(248,113,113,0)} }
+@keyframes chatIn    { from{opacity:0;transform:scale(.6) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes voiceRipple { 0%{opacity:.6;transform:scale(1)} 100%{opacity:0;transform:scale(2.5)} }
+</style>
+</head>
+<body>
+
+<!-- Hidden camera for face scan -->
+<video id="cam" muted playsinline></video>
+
+<!-- ── GREETING BUBBLE ── -->
+<div id="greeting">
+  <div class="g-header">
+    <div class="g-dot"></div>
+    <span class="g-label" id="g-label">J.A.R.V.I.S</span>
+  </div>
+  <div class="g-text" id="g-text"></div>
+  <div class="g-tail1"></div>
+  <div class="g-tail2"></div>
+</div>
+
+<!-- ── MINI PILL ── -->
+<div id="mini">
+  <div class="mini-dot"></div>
+  <span class="mini-label">J.A.R.V.I.S</span>
+  <span class="mini-mic" id="mini-mic">🎙</span>
+</div>
+
+<!-- ── LOCKED PILL ── -->
+<div id="locked">
+  <div class="spinner"></div>
+  <span class="lock-icon-wrap"><span class="lock-icon">🛡</span></span>
+  <span class="lock-label" id="lock-label">LOCKED</span>
+  <span class="lock-mic" id="lock-mic">🎙</span>
+</div>
+
+<!-- ── CHAT PANEL ── -->
+<div id="chat">
+  <div class="chat-header">
+    <div class="chat-dot"></div>
+    <span class="chat-title">J.A.R.V.I.S. ASSISTANT</span>
+    <button class="chat-close" id="chat-close" title="Minimise">✕</button>
+  </div>
+  <!-- Voice listening indicator bar -->
+  <div class="chat-voice-bar">
+    <div class="voice-dot" id="voice-dot"></div>
+    <span class="voice-status-text" id="voice-status-text">VOICE STANDBY</span>
+  </div>
+  <div class="chat-status" id="chat-status">Connecting…</div>
+  <div class="chat-messages" id="chat-messages"></div>
+  <div class="chat-thinking" id="chat-thinking" style="display:none">
+    <div class="thinking-dots"><span></span><span></span><span></span></div>
+    <span class="thinking-label">PROCESSING…</span>
+  </div>
+  <form class="chat-form" id="chat-form">
+    <input class="chat-input" id="chat-input" type="text" placeholder="Ask JARVIS anything… or speak" autocomplete="off" />
+    <button type="button" class="chat-mic" id="chat-mic-btn" title="Voice input">🎙</button>
+    <button type="submit" class="chat-send" title="Send">➤</button>
+  </form>
+</div>
+
+<!-- Socket.io client from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"></script>
+<!-- face-api.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════════════════════════
+const SERVER = 'http://localhost:5000';
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+const SESSION_ID = 'electron-' + Math.random().toString(36).slice(2, 10);
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let appState    = 'scanning';
+let socket      = null;
+let isThinking  = false;
+let isRecording = false;
+let interimDiv  = null;
+
+// ═══════════════════════════════════════════════════════════════════
+// ELEMENTS
+// ═══════════════════════════════════════════════════════════════════
+const $cam        = document.getElementById('cam');
+const $greet      = document.getElementById('greeting');
+const $mini       = document.getElementById('mini');
+const $locked     = document.getElementById('locked');
+const $chat       = document.getElementById('chat');
+const $gText      = document.getElementById('g-text');
+const $gLabel     = document.getElementById('g-label');
+const $miniMic    = document.getElementById('mini-mic');
+const $lockMic    = document.getElementById('lock-mic');
+const $lockLbl    = document.getElementById('lock-label');
+const $msgs       = document.getElementById('chat-messages');
+const $status     = document.getElementById('chat-status');
+const $thinking   = document.getElementById('chat-thinking');
+const $form       = document.getElementById('chat-form');
+const $input      = document.getElementById('chat-input');
+const $micBtn     = document.getElementById('chat-mic-btn');
+const $close      = document.getElementById('chat-close');
+const $voiceDot   = document.getElementById('voice-dot');
+const $voiceText  = document.getElementById('voice-status-text');
+
+// ═══════════════════════════════════════════════════════════════════
+// WINDOW STATE HELPER
+// ═══════════════════════════════════════════════════════════════════
+function setState(s) {
+  appState = s;
+  $greet.style.display  = s === 'greeting'   ? 'block' : 'none';
+  $mini.style.display   = s === 'mini'       ? 'flex'  : 'none';
+  $locked.style.display = (s === 'locked' || s === 'rescanning') ? 'flex' : 'none';
+  $chat.style.display   = s === 'chat'       ? 'flex'  : 'none';
+
+  if (s === 'rescanning') {
+    $locked.classList.add('scanning');
+    $lockLbl.textContent = 'SCANNING';
+    $lockMic.style.display = 'none';
+  } else if (s === 'locked') {
+    $locked.classList.remove('scanning');
+    $lockLbl.textContent = 'LOCKED';
+    $lockMic.style.display = '';
+  }
+
+  if (window.jarvisElectron) {
+    const map = { scanning:'scanning', greeting:'greeting', mini:'mini', locked:'locked', rescanning:'locked', chat:'chat' };
+    window.jarvisElectron.setState(map[s] || 'mini');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GREETING BUBBLE — typewriter + BUBBLE SHRINK ANIMATION to pill
+// ═══════════════════════════════════════════════════════════════════
+function showGreeting(ok, onDone) {
+  const text = ok
+    ? "Hello, Sir. Systems online. I'm at your service."
+    : "Identity unverified. Access to JARVIS is restricted.";
+
+  $greet.className = ok ? 'ok' : 'fail';
+  $gLabel.textContent = ok ? 'J.A.R.V.I.S' : 'ACCESS DENIED';
+  $gText.innerHTML = '';
+  // Reset animation
+  $greet.style.animation = '';
+  $greet.style.opacity   = '';
+  $greet.style.transform = '';
+  setState('greeting');
+
+  // Typewriter
+  let i = 0;
+  const cur = document.createElement('span');
+  cur.className = 'g-cursor';
+  $gText.appendChild(cur);
+
+  const iv = setInterval(() => {
+    if (i < text.length) {
+      $greet.insertBefore
+        ? $gText.insertBefore(document.createTextNode(text[i]), cur)
+        : $gText.appendChild(document.createTextNode(text[i]));
+      i++;
+    } else {
+      clearInterval(iv);
+      cur.remove();
+
+      // Wait 1.8s then animate bubble shrinking to bottom-right corner
+      setTimeout(() => {
+        // ── BUBBLE SHRINK TO PILL ANIMATION ──
+        $greet.style.animation = 'shrinkToPill 0.55s cubic-bezier(0.55,0,0.75,0.2) forwards';
+
+        setTimeout(() => {
+          $greet.style.display = 'none';
+          $greet.style.animation = 'bubbleIn 0.45s cubic-bezier(0.34,1.56,0.64,1) forwards';
+          $greet.style.opacity   = '';
+          $greet.style.transform = '';
+
+          // ── PILL BOUNCE IN ──
+          onDone(); // sets state to mini/locked which shows the pill
+          const pill = ok ? $mini : $locked;
+          pill.style.animation = 'pillBounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards';
+          setTimeout(() => { pill.style.animation = ''; }, 600);
+        }, 560);
+      }, 1800);
+    }
+  }, 38);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SPEECH SYNTHESIS
+// ═══════════════════════════════════════════════════════════════════
+function speak(text) {
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.rate = 0.95; u.pitch = 0.85; u.volume = 1;
+  window.speechSynthesis.speak(u);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VOICE ACTIVITY DETECTOR (VAD)
+// ─────────────────────────────────────────────────────────────────
+// Web Speech API fails in Electron (needs Google's internal API key).
+// Instead: AudioContext monitors mic volume → when voice detected,
+// MediaRecorder captures it → sends to /api/transcribe (Gemini) →
+// check for "hello jarvis" or other commands.
+// ═══════════════════════════════════════════════════════════════════
+
+let vadStream    = null;
+let vadCtx       = null;
+let vadAnalyser  = null;
+let vadInterval  = null;
+let vadRecorder  = null;
+let vadChunks    = [];
+let vadVoiceFrames   = 0;
+let vadSilenceFrames = 0;
+let vadIsRecording   = false;
+let vadActive        = false;
+
+const VAD_VOICE_THRESH  = 22;   // RMS threshold to count as "voice"
+const VAD_VOICE_FRAMES  = 3;    // frames of voice before recording starts (~300ms)
+const VAD_SILENCE_FRAMES= 9;    // frames of silence before recording stops (~900ms)
+const VAD_POLL_MS       = 100;  // poll every 100ms
+const VAD_MIN_BYTES     = 800;  // ignore tiny blobs (just noise)
+
+async function startVAD() {
+  if (vadActive) return;
+  vadActive = true;
+  vadVoiceFrames = vadSilenceFrames = 0;
+
+  try {
+    vadStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 },
+      video: false,
+    });
+
+    vadCtx      = new (window.AudioContext || window.webkitAudioContext)();
+    const src   = vadCtx.createMediaStreamSource(vadStream);
+    vadAnalyser = vadCtx.createAnalyser();
+    vadAnalyser.fftSize = 512;
+    src.connect(vadAnalyser);
+
+    const buf = new Uint8Array(vadAnalyser.frequencyBinCount);
+
+    vadInterval = setInterval(() => {
+      if (!vadActive) return;
+      // Don't process during scanning/greeting/reauth
+      if (appState === 'scanning' || appState === 'rescanning' || appState === 'greeting') return;
+
+      vadAnalyser.getByteFrequencyData(buf);
+      const rms = Math.sqrt(buf.reduce((s, v) => s + v * v, 0) / buf.length);
+
+      // Animate mic icon with volume level
+      const lvl = Math.min(1, rms / 45);
+      $miniMic.style.opacity = (0.25 + lvl * 0.75).toString();
+      $lockMic.style.opacity = (0.25 + lvl * 0.75).toString();
+
+      if (rms > VAD_VOICE_THRESH) {
+        vadVoiceFrames++;
+        vadSilenceFrames = 0;
+
+        if (!vadIsRecording && vadVoiceFrames >= VAD_VOICE_FRAMES) {
+          // ── Start recording ──────────────────────────────
+          vadChunks = [];
+          const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus' : 'audio/webm';
+          vadRecorder = new MediaRecorder(vadStream, { mimeType: mime });
+          vadRecorder.ondataavailable = e => { if (e.data.size > 0) vadChunks.push(e.data); };
+          vadRecorder.start();
+          vadIsRecording = true;
+          console.log('[VAD] 🎙 Voice → recording');
+        }
+
+      } else {
+        vadSilenceFrames++;
+        vadVoiceFrames = 0;
+
+        if (vadIsRecording && vadSilenceFrames >= VAD_SILENCE_FRAMES) {
+          // ── Stop recording → transcribe ──────────────────
+          vadIsRecording = false;
+          const recorder = vadRecorder;
+          recorder.onstop = async () => {
+            const blob = new Blob(vadChunks, { type: recorder.mimeType });
+            if (blob.size >= VAD_MIN_BYTES) {
+              await handleAudioBlob(blob, recorder.mimeType);
+            }
+          };
+          recorder.stop();
+          console.log('[VAD] 🔇 Silence → stopping');
+        }
+      }
+    }, VAD_POLL_MS);
+
+    console.log('[VAD] ✅ Listening…');
+
+  } catch (e) {
+    console.error('[VAD] ❌ Failed to start:', e.message);
+    vadActive = false;
+  }
+}
+
+function stopVAD() {
+  vadActive = false;
+  if (vadInterval) { clearInterval(vadInterval); vadInterval = null; }
+  if (vadIsRecording && vadRecorder?.state !== 'inactive') {
+    try { vadRecorder.stop(); } catch {}
+  }
+  vadIsRecording = false;
+  vadVoiceFrames = vadSilenceFrames = 0;
+  // NOTE: We keep the stream alive so restarting VAD is instant
+}
+
+function destroyVAD() {
+  stopVAD();
+  if (vadStream) { vadStream.getTracks().forEach(t => t.stop()); vadStream = null; }
+  if (vadCtx)    { vadCtx.close().catch(() => {}); vadCtx = null; }
+}
+
+// ── Convert blob → base64 → POST to /api/transcribe → handle result ──
+async function handleAudioBlob(blob, mimeType) {
+  try {
+    // FileReader: blob → base64
+    const base64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload  = () => resolve(r.result.split(',')[1]);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+
+    const res = await fetch(`${SERVER}/api/transcribe`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ audio: base64, mimeType }),
+    });
+
+    if (!res.ok) return;
+    const { transcript = '' } = await res.json();
+    if (!transcript) return;
+
+    const t = transcript.toLowerCase().trim();
+    console.log('[VAD] 📝 Transcript:', t);
+
+    const isWake   = t.includes('jarvis');
+    const isUnlock = t.includes('authenticate') || t.includes('unlock') || t.includes('verify');
+
+    // ── MINI: wake word → open chat ──────────────────────────────
+    if (appState === 'mini' && isWake) {
+      const cmd = t.replace(/hello jarvis/g,'').replace(/hey jarvis/g,'')
+                   .replace(/ok jarvis/g,'').replace(/jarvis/g,'').trim();
+      speak('Yes, Sir?');
+      openChat();
+      if (cmd.length > 2) setTimeout(() => sendMessage(cmd), 800);
+      return;
+    }
+
+    // ── LOCKED: voice unlock ──────────────────────────────────────
+    if (appState === 'locked' && (isWake || isUnlock)) {
+      startReauth();
+      return;
+    }
+
+    // ── CHAT: voice command (continuous listening while chat open) ─
+    if (appState === 'chat' && !isThinking && t.length > 2) {
+      if (interimDiv) { interimDiv.remove(); interimDiv = null; }
+      sendMessage(transcript); // send original-case transcript
+    }
+
+  } catch (e) {
+    console.warn('[VAD] Transcription error:', e.message);
+  }
+}
+
+
+
+
+// ═══════════════════════════════════════════════════════════════════
+// SOCKET.IO — connect to JARVIS server
+// ═══════════════════════════════════════════════════════════════════
+function connectSocket() {
+  if (socket && socket.connected) return;
+  if (socket) { socket.disconnect(); socket = null; }
+
+  socket = io(SERVER, { transports: ['websocket'], reconnectionDelay: 2000, reconnectionAttempts: 10 });
+
+  socket.on('connect', () => {
+    console.log('[Socket] Connected:', socket.id);
+    $status.textContent = 'NEURAL LINK ESTABLISHED · ' + socket.id.slice(0,6).toUpperCase();
+  });
+
+  socket.on('disconnect', () => {
+    $status.textContent = 'CONNECTION LOST — RECONNECTING…';
+  });
+
+  socket.on('jarvis:thinking', () => {
+    isThinking = true;
+    $thinking.style.display = 'flex';
+    setVoiceStatus(false, 'PROCESSING…');
+  });
+
+  socket.on('jarvis:searching', () => {
+    $status.textContent = 'SEARCHING WEB…';
+  });
+
+  socket.on('jarvis:executing', (d) => {
+    $status.textContent = `EXECUTING: ${d.action || '…'}`;
+  });
+
+  socket.on('jarvis:response', (d) => {
+    isThinking = false;
+    $thinking.style.display = 'none';
+    $status.textContent = 'STANDBY';
+    // Remove any interim bubble
+    if (interimDiv) { interimDiv.remove(); interimDiv = null; }
+    addMessage('jarvis', d.display || d.speak);
+    if (d.speak) speak(d.speak);
+    // Re-enable voice after response
+    setVoiceStatus(true, 'LISTENING — SPEAK YOUR COMMAND');
+  });
+
+  socket.on('jarvis:error', (d) => {
+    isThinking = false;
+    $thinking.style.display = 'none';
+    $status.textContent = 'ERROR';
+    addMessage('jarvis', '⚠️ ' + (d.message || 'An error occurred.'));
+    setVoiceStatus(true, 'LISTENING — SPEAK YOUR COMMAND');
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VOICE STATUS BAR HELPER
+// ═══════════════════════════════════════════════════════════════════
+function setVoiceStatus(active, label) {
+  if (active) {
+    $voiceDot.classList.add('active');
+    $voiceText.classList.add('active');
+  } else {
+    $voiceDot.classList.remove('active');
+    $voiceText.classList.remove('active');
+  }
+  $voiceText.textContent = label;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CHAT HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function addMessage(role, content) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  const lbl = document.createElement('div');
+  lbl.className = 'msg-label';
+  lbl.textContent = role === 'user' ? 'YOU' : 'J.A.R.V.I.S.';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  bubble.textContent = content;
+  div.appendChild(lbl);
+  div.appendChild(bubble);
+  $msgs.appendChild(div);
+  $msgs.scrollTop = $msgs.scrollHeight;
+}
+
+function sendMessage(text) {
+  if (!text.trim() || isThinking) return;
+  if (interimDiv) { interimDiv.remove(); interimDiv = null; }
+  addMessage('user', text);
+  $input.value = '';
+  setVoiceStatus(false, 'PROCESSING…');
+  if (socket?.connected) {
+    socket.emit('user:command', { message: text, sessionId: SESSION_ID, expertId: 'jarvis' });
+  } else {
+    // Reconnect then send
+    connectSocket();
+    socket.once('connect', () => {
+      socket.emit('user:command', { message: text, sessionId: SESSION_ID, expertId: 'jarvis' });
+    });
+  }
+}
+
+function openChat() {
+  if (appState === 'chat') return;
+  connectSocket();
+  setState('chat');
+  $chat.style.animation = 'chatIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards';
+  // VAD keeps running in chat state — any detected speech = a command
+  setVoiceStatus(true, 'LISTENING — SPEAK YOUR COMMAND');
+  $input.focus();
+}
+
+function closeChat() {
+  setState('mini');
+  setVoiceStatus(false, 'VOICE STANDBY');
+  if (interimDiv) { interimDiv.remove(); interimDiv = null; }
+  if (socket) { socket.disconnect(); socket = null; }
+  speak('Goodbye, Sir.');
+  // VAD continues listening for wake word
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CHAT MIC BUTTON — push-to-talk using MediaRecorder + Gemini
+// ═══════════════════════════════════════════════════════════════════
+let chatRecorder = null;
+
+async function toggleChatMic() {
+  // ── STOP recording ───────────────────────────────────────────────
+  if (isRecording) {
+    if (chatRecorder?.state !== 'inactive') chatRecorder.stop();
+    isRecording = false;
+    $micBtn.classList.remove('recording');
+    setVoiceStatus(true, 'PROCESSING…');
+    return;
+  }
+
+  // ── START recording ──────────────────────────────────────────────
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    const chunks = [];
+    chatRecorder = new MediaRecorder(stream, { mimeType: mime });
+    chatRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    chatRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: mime });
+      if (blob.size < 500) { setVoiceStatus(true, 'LISTENING — SPEAK YOUR COMMAND'); return; }
+      // Convert to base64 and transcribe
+      const base64 = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload  = () => resolve(r.result.split(',')[1]);
+        r.onerror = reject;
+        r.readAsDataURL(blob);
+      });
+      try {
+        const res  = await fetch(`${SERVER}/api/transcribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ audio: base64, mimeType: mime }),
+        });
+        const { transcript = '' } = await res.json();
+        if (transcript && transcript.length > 1) {
+          $input.value = transcript;
+          sendMessage(transcript);
+        } else {
+          setVoiceStatus(true, 'LISTENING — SPEAK YOUR COMMAND');
+        }
+      } catch {
+        setVoiceStatus(true, 'LISTENING — SPEAK YOUR COMMAND');
+      }
+    };
+    chatRecorder.start();
+    isRecording = true;
+    $micBtn.classList.add('recording');
+    setVoiceStatus(true, 'RECORDING — SPEAK NOW');
+  } catch (e) {
+    console.error('[ChatMic] Failed:', e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FACE AUTHENTICATION
+// ═══════════════════════════════════════════════════════════════════
+async function runFaceAuth() {
+  setState('scanning');
+  let stream = null;
+  try {
+    const res = await fetch(`${SERVER}/api/auth/face-profile`).catch(() => null);
+    if (!res?.ok) throw new Error('no-profile');
+    const profile = await res.json();
+    if (!profile.faceEnrolled || !profile.descriptor) throw new Error('no-profile');
+
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width:320, height:240, facingMode:'user' } });
+    $cam.srcObject = stream;
+    $cam.muted = true;
+    await $cam.play().catch(() => {});
+    await delay(800);
+
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+    ]);
+
+    const dets = [];
+    for (let i = 0; i < 20 && dets.length < 5; i++) {
+      await delay(500);
+      try {
+        const d = await faceapi
+          .detectSingleFace($cam, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.38 }))
+          .withFaceLandmarks().withFaceDescriptor();
+        if (d) dets.push(d);
+      } catch {}
+    }
+
+    stopStream(stream);
+    if (!dets.length) throw new Error('no-face');
+
+    const stored = new Float32Array(profile.descriptor);
+    const best = Math.min(...dets.map(d => faceapi.euclideanDistance(d.descriptor, stored)));
+    if (best >= 0.50) throw new Error('no-match');
+
+    return true;
+  } catch (e) {
+    console.log('[Auth] failed:', e.message);
+    stopStream(stream);
+    return false;
+  }
+}
+
+function stopStream(stream) {
+  stream?.getTracks().forEach(t => t.stop());
+  $cam.srcObject = null;
+}
+
+async function startReauth() {
+  stopVAD(); // pause VAD while camera is active
+  setState('rescanning');
+  const ok = await runFaceAuth();
+  if (ok) {
+    showGreeting(true, () => { setState('mini'); startVAD(); });
+  } else {
+    setState('locked');
+    startVAD();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EVENTS
+// ═══════════════════════════════════════════════════════════════════
+$mini.addEventListener('click', () => { if (appState === 'mini') openChat(); });
+$locked.addEventListener('click', () => { if (appState === 'locked') startReauth(); });
+$close.addEventListener('click', () => closeChat());
+$micBtn.addEventListener('click', () => toggleChatMic());
+$form.addEventListener('submit', (e) => { e.preventDefault(); sendMessage($input.value); });
+$input.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChat(); });
+
+// Electron main process commands
+if (window.jarvisElectron) {
+  window.jarvisElectron.on('cmd:tray-click', () => {
+    console.log('[IPC] tray-click, state:', appState);
+    if      (appState === 'mini')   openChat();
+    else if (appState === 'chat')   closeChat();
+    else if (appState === 'locked') startReauth();  // Force-open reauth on shortcut
+    // scanning/greeting: ignore (in progress)
+  });
+  window.jarvisElectron.on('cmd:reauth', () => {
+    if (appState !== 'scanning' && appState !== 'rescanning') startReauth();
+  });
+}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function boot() {
+  console.log('[JARVIS] Booting silent assistant…');
+  setState('scanning');
+  await delay(300);
+
+  // Check if a face profile exists before attempting auth.
+  // If no profile is enrolled, skip face-lock entirely and go straight to mini.
+  let hasProfile = false;
+  try {
+    const profileRes = await fetch(`${SERVER}/api/auth/face-profile`).catch(() => null);
+    if (profileRes?.ok) {
+      const profile = await profileRes.json();
+      hasProfile = !!(profile.faceEnrolled && profile.descriptor);
+    }
+  } catch {}
+
+  if (!hasProfile) {
+    // No face profile enrolled — go directly to unlocked/mini state
+    console.log('[Boot] No face profile — skipping auth, going to mini');
+    showGreeting(true, () => {
+      setState('mini');
+      startVAD(); // Start VAD-based wake word detection
+    });
+    return;
+  }
+
+  // Face auth
+  const faceOk = await runFaceAuth();
+  console.log('[Boot] Face auth:', faceOk);
+
+  if (faceOk) {
+    showGreeting(true, () => {
+      setState('mini');
+      startVAD(); // Start VAD-based wake word detection
+    });
+  } else {
+    showGreeting(false, () => {
+      setState('locked');
+      startVAD(); // Still listen for "authenticate me"
+    });
+  }
+}
+
+// ─── Tray: test mic ───────────────────────────────────────────────
+if (window.jarvisElectron) {
+  window.jarvisElectron.on('cmd:test-mic', async () => {
+    try {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach(t => t.stop());
+      speak('Microphone is working, Sir.');
+    } catch {
+      speak('Microphone access is denied, Sir.');
+    }
+  });
+}
+
+boot().catch(console.error);
+</script>
+</body>
+</html>

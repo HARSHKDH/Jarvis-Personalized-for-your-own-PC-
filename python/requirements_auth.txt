@@ -1,0 +1,4 @@
+resemblyzer
+sounddevice
+numpy
+scipy

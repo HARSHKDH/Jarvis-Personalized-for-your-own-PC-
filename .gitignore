@@ -1,0 +1,95 @@
+# ---------------------------------------------------------------
+# J.A.R.V.I.S. — .gitignore
+# ---------------------------------------------------------------
+
+# -- Environment / Secrets ----------------------------------------
+.env
+.env.*
+!.env.example
+*.env
+
+# -- Node.js ------------------------------------------------------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+package-lock.json
+
+# -- Build Outputs -------------------------------------------------
+dist/
+dist-ssr/
+build/
+out/
+.output/
+
+# -- Vite ---------------------------------------------------------
+*.local
+
+# -- Electron -----------------------------------------------------
+app-builds/
+release/
+
+# -- Python -------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+*.egg
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+*.pyc
+
+# -- WhatsApp Selenium Profile (contains session cookies) ---------
+python/whatsapp_profile/
+
+# -- Voice / Biometric Profiles (personal data) -------------------
+python/voice_profiles/
+python/*.npy
+python/*.pkl
+
+# -- Logs ---------------------------------------------------------
+logs/*.log
+logs/*.log.*
+*.log
+
+# -- OS Files -----------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# -- IDE / Editor -------------------------------------------------
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.project
+.classpath
+.settings/
+
+# -- Temporary Files -----------------------------------------------
+*.tmp
+*.temp
+~$*

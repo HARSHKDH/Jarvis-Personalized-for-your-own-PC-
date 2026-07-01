@@ -1,0 +1,16 @@
+{
+  "name": "jarvis-ai",
+  "version": "5.0.0",
+  "description": "J.A.R.V.I.S. — Just A Rather Very Intelligent System",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently --names \"SERVER,CLIENT\" --prefix-colors \"cyan,magenta\" \"npm run server\" \"npm run client\"",
+    "server": "node server/index.js",
+    "client": "cd client && npm run dev",
+    "install:all": "npm install && cd server && npm install && cd ../client && npm install",
+    "install:python": "cd python && pip install -r requirements.txt"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
