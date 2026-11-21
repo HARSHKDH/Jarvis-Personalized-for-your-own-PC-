@@ -3,7 +3,9 @@
 # Run as Administrator
 # ─────────────────────────────────────────────────────────────────────────────
 
-$tasks = @("JARVIS_Server", "JARVIS_Client", "JARVIS_Browser")
+$tasks = @("JARVIS_Server", "JARVIS_Client", "JARVIS_Electron", "JARVIS_Browser")
+$regPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$startupEntries = @("JARVIS_Server", "JARVIS_Client", "JARVIS_Electron", "JARVIS_Browser")
 
 Write-Host ""
 Write-Host "  J.A.R.V.I.S  Startup Uninstaller" -ForegroundColor Cyan
@@ -20,6 +22,16 @@ foreach ($task in $tasks) {
 }
 
 Write-Host ""
-Write-Host "  All JARVIS startup tasks removed." -ForegroundColor Cyan
+foreach ($entry in $startupEntries) {
+    if (Get-ItemProperty -Path $regPath -Name $entry -ErrorAction SilentlyContinue) {
+        Remove-ItemProperty -Path $regPath -Name $entry -ErrorAction SilentlyContinue
+        Write-Host "  [REMOVED] HKCU Run: $entry" -ForegroundColor Green
+    } else {
+        Write-Host "  [SKIP]    HKCU Run: $entry - not found" -ForegroundColor Gray
+    }
+}
+
+Write-Host ""
+Write-Host "  All JARVIS startup entries removed." -ForegroundColor Cyan
 Write-Host "  JARVIS will no longer auto-start on login." -ForegroundColor Gray
 Write-Host ""
