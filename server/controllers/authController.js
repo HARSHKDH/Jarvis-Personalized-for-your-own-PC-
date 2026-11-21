@@ -1,21 +1,124 @@
-const { spawn } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const VoiceProfile = require('../models/VoiceProfile');
+const mongoose = require('mongoose');
 
+// ── Local JSON store (works without MongoDB) ──────────────────────────────────
+// All auth data is kept here. MongoDB is used as secondary backup when connected.
+const LOCAL_STORE_PATH = path.join(__dirname, '../../data/profile.json');
+
+function isMongoReady() {
+  return mongoose.connection.readyState === 1;
+}
+
+function loadLocalProfile(userId) {
+  try {
+    if (!fs.existsSync(LOCAL_STORE_PATH)) return null;
+    const all = JSON.parse(fs.readFileSync(LOCAL_STORE_PATH, 'utf8'));
+    return all[userId] || null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalProfile(userId, data) {
+  try {
+    const dir = path.dirname(LOCAL_STORE_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    let all = {};
+    if (fs.existsSync(LOCAL_STORE_PATH)) {
+      try { all = JSON.parse(fs.readFileSync(LOCAL_STORE_PATH, 'utf8')); } catch {}
+    }
+    all[userId] = { ...all[userId], ...data, updatedAt: new Date().toISOString() };
+    fs.writeFileSync(LOCAL_STORE_PATH, JSON.stringify(all, null, 2));
+    return all[userId];
+  } catch (e) {
+    console.error('[LocalStore] Write error:', e.message);
+    return data;
+  }
+}
+
+function deleteLocalProfile(userId) {
+  try {
+    if (!fs.existsSync(LOCAL_STORE_PATH)) return;
+    const all = JSON.parse(fs.readFileSync(LOCAL_STORE_PATH, 'utf8'));
+    delete all[userId];
+    fs.writeFileSync(LOCAL_STORE_PATH, JSON.stringify(all, null, 2));
+  } catch {}
+}
+
+// ── Lazy-load VoiceProfile only when Mongo is ready ───────────────────────────
+let VoiceProfile = null;
+function getModel() {
+  if (!VoiceProfile && isMongoReady()) {
+    VoiceProfile = require('../models/VoiceProfile');
+  }
+  return VoiceProfile;
+}
+
+async function findProfile(userId) {
+  const Model = getModel();
+  if (Model) {
+    try { return await Model.findOne({ userId }).lean(); } catch {}
+  }
+  return loadLocalProfile(userId);
+}
+
+async function upsertProfile(userId, data) {
+  // Always write to local store first (fast, reliable)
+  const saved = saveLocalProfile(userId, data);
+  // Try MongoDB as backup
+  const Model = getModel();
+  if (Model) {
+    try {
+      await Model.findOneAndUpdate({ userId }, { $set: data }, { upsert: true, new: true });
+    } catch (e) {
+      console.warn('[Auth] MongoDB upsert failed (local store is authoritative):', e.message);
+    }
+  }
+  return saved;
+}
+
+async function deleteProfile(userId) {
+  deleteLocalProfile(userId);
+  const Model = getModel();
+  if (Model) {
+    try { await Model.deleteOne({ userId }); } catch {}
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 const ENROLL_SAMPLE_SCRIPT = path.join(__dirname, '../../python/enroll_sample.py');
-const VERIFY_SCRIPT = path.join(__dirname, '../../python/verify.py');
-const LOCK_DURATION_MS = 5 * 60 * 1000;
-const MAX_FAILED_ATTEMPTS = 5;  // More forgiving attempt limit
-const VOICE_THRESHOLD = 0.40;   // Calibrated for browser AudioContext → resemblyzer pipeline
+const VERIFY_SCRIPT        = path.join(__dirname, '../../python/verify.py');
+const LOCK_DURATION_MS     = 5 * 60 * 1000;
+const MAX_FAILED_ATTEMPTS  = 5;
+const VOICE_THRESHOLD      = 0.40;
+const PYTHON_CANDIDATES    = ['python', 'python3', 'py'];
+const PYTHON_BIN           = resolvePythonBin();
+
+function resolvePythonBin() {
+  for (const bin of PYTHON_CANDIDATES) {
+    const probe = spawnSync(bin, ['--version'], {
+      windowsHide: true,
+      shell: false,
+      stdio: 'ignore',
+    });
+    if (!probe.error && probe.status === 0) return bin;
+  }
+  return null;
+}
 
 // ─── Helper: run Python and return parsed JSON output ─────────────────────────
 const runPython = (scriptPath, args = [], timeoutMs = 60000, onProgress = null) => {
   return new Promise((resolve, reject) => {
+    if (!PYTHON_BIN) {
+      reject(new Error('No python interpreter found. Install Python and ensure it is in PATH.'));
+      return;
+    }
     const lines = [];
     const errLines = [];
 
-    const child = spawn('python', [scriptPath, ...args], { windowsHide: true });
+    const child = spawn(PYTHON_BIN, [scriptPath, ...args], { windowsHide: true });
 
     const timer = setTimeout(() => {
       child.kill();
@@ -28,7 +131,7 @@ const runPython = (scriptPath, args = [], timeoutMs = 60000, onProgress = null) 
         if (trimmed) {
           lines.push(trimmed);
           if (onProgress) {
-            try { onProgress(JSON.parse(trimmed)); } catch (e) { /* ignore */ }
+            try { onProgress(JSON.parse(trimmed)); } catch {}
           }
         }
       });
@@ -59,7 +162,7 @@ const runPython = (scriptPath, args = [], timeoutMs = 60000, onProgress = null) 
 const getStatus = async (req, res) => {
   try {
     const userId = process.env.AUTH_USER_ID || 'harsh';
-    const profile = await VoiceProfile.findOne({ userId }).lean();
+    const profile = await findProfile(userId);
 
     if (!profile) return res.json({ isEnrolled: false, faceEnrolled: false, userId });
 
@@ -67,11 +170,11 @@ const getStatus = async (req, res) => {
       profile.isLocked && profile.lockUntil && new Date(profile.lockUntil) > new Date();
 
     return res.json({
-      isEnrolled: profile.isEnrolled,
+      isEnrolled:   profile.isEnrolled   || false,
       faceEnrolled: profile.faceEnrolled || false,
-      isLocked: isCurrentlyLocked,
-      lockUntil: profile.lockUntil,
-      displayName: profile.displayName,
+      isLocked:     isCurrentlyLocked    || false,
+      lockUntil:    profile.lockUntil,
+      displayName:  profile.displayName,
       userId,
     });
   } catch (err) {
@@ -93,20 +196,13 @@ const enrollSample = async (req, res) => {
 
   try {
     const result = await runPython(ENROLL_SAMPLE_SCRIPT, [audioPath], 30000);
-
-    // Always clean up the temp file
     fs.unlink(audioPath, () => {});
 
     if (!result.success) {
-      return res.json({
-        success: false,
-        error: result.error || 'Sample processing failed',
-        quality: 'poor',
-      });
+      return res.json({ success: false, error: result.error || 'Sample processing failed', quality: 'poor' });
     }
 
     console.log(`[Auth] Sample quality: ${result.quality}, rms: ${result.rms}, has_voice: ${result.has_voice}`);
-
     return res.json({
       success: true,
       embedding: result.embedding,
@@ -140,33 +236,25 @@ const finalizeEnrollment = async (req, res) => {
       return res.status(400).json({ success: false, error: `Expected 256-dim embeddings, got ${dim}` });
     }
 
-    // Average all embeddings into master voiceprint
     const master = new Array(dim).fill(0);
     for (const emb of embeddings) {
       for (let i = 0; i < dim; i++) master[i] += emb[i];
     }
     for (let i = 0; i < dim; i++) master[i] /= embeddings.length;
 
-    // L2 normalize
     const norm = Math.sqrt(master.reduce((s, v) => s + v * v, 0));
     const normalized = norm > 0 ? master.map(v => v / norm) : master;
 
-    await VoiceProfile.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          userId,
-          displayName: displayName || 'Sir',
-          voiceprint: normalized,
-          isEnrolled: true,
-          enrolledAt: new Date(),
-          failedAttempts: 0,
-          isLocked: false,
-          lockUntil: null,
-        },
-      },
-      { upsert: true, new: true }
-    );
+    await upsertProfile(userId, {
+      userId,
+      displayName: displayName || 'Sir',
+      voiceprint: normalized,
+      isEnrolled: true,
+      enrolledAt: new Date().toISOString(),
+      failedAttempts: 0,
+      isLocked: false,
+      lockUntil: null,
+    });
 
     console.log(`[Auth] Enrollment finalized for: ${userId}, samples: ${embeddings.length}`);
     return res.json({
@@ -182,7 +270,7 @@ const finalizeEnrollment = async (req, res) => {
 };
 
 // ════════════════════════════════════════════════════════════
-// ENROLL FACE — save browser face-api.js descriptor to DB
+// ENROLL FACE — save browser face-api.js descriptor
 // ════════════════════════════════════════════════════════════
 const enrollFace = async (req, res) => {
   const userId = process.env.AUTH_USER_ID || 'harsh';
@@ -193,22 +281,17 @@ const enrollFace = async (req, res) => {
   }
 
   try {
-    await VoiceProfile.findOneAndUpdate(
-      { userId },
-      {
-        $set: {
-          userId, displayName: displayName || 'Sir',
-          faceDescriptor: descriptor,
-          faceEnrolled: true,
-          isEnrolled: true,       // face enrollment counts as enrolled
-          enrolledAt: new Date(),
-          failedAttempts: 0,
-          isLocked: false,
-          lockUntil: null,
-        },
-      },
-      { upsert: true, new: true }
-    );
+    await upsertProfile(userId, {
+      userId,
+      displayName: displayName || 'Sir',
+      faceDescriptor: descriptor,
+      faceEnrolled: true,
+      isEnrolled: true,
+      enrolledAt: new Date().toISOString(),
+      failedAttempts: 0,
+      isLocked: false,
+      lockUntil: null,
+    });
 
     console.log(`[Auth] Face enrolled for: ${userId}`);
     return res.json({ success: true, message: 'Face profile saved.' });
@@ -219,21 +302,23 @@ const enrollFace = async (req, res) => {
 };
 
 // ════════════════════════════════════════════════════════════
-// GET FACE PROFILE — return stored descriptor for client-side comparison
+// GET FACE PROFILE — return stored descriptor for client comparison
 // ════════════════════════════════════════════════════════════
 const getFaceProfile = async (req, res) => {
   const userId = process.env.AUTH_USER_ID || 'harsh';
   try {
-    const profile = await VoiceProfile.findOne({ userId }).lean();
+    const profile = await findProfile(userId);
     if (!profile || !profile.faceEnrolled) {
       return res.json({ success: false, faceEnrolled: false });
     }
     return res.json({
-      success: true, faceEnrolled: true,
+      success: true,
+      faceEnrolled: true,
       descriptor: profile.faceDescriptor,
       displayName: profile.displayName,
     });
   } catch (err) {
+    console.error('[Auth] getFaceProfile error:', err.message);
     return res.status(500).json({ success: false, error: err.message });
   }
 };
@@ -251,22 +336,16 @@ const verifyVoice = async (req, res) => {
   const audioPath = req.file.path;
 
   try {
-    const profile = await VoiceProfile.findOne({ userId });
+    const profile = await findProfile(userId);
 
     if (!profile || !profile.isEnrolled) {
       fs.unlink(audioPath, () => {});
       return res.status(400).json({ success: false, error: 'Voice profile not found. Please enroll first.' });
     }
 
-    if (profile.isLocked && profile.lockUntil && profile.lockUntil > new Date()) {
+    if (profile.isLocked && profile.lockUntil && new Date(profile.lockUntil) > new Date()) {
       fs.unlink(audioPath, () => {});
       return res.json({ success: false, locked: true, lockUntil: profile.lockUntil });
-    }
-
-    if (profile.isLocked && profile.lockUntil && profile.lockUntil <= new Date()) {
-      profile.isLocked = false;
-      profile.failedAttempts = 0;
-      profile.lockUntil = null;
     }
 
     const voiceprintJson = JSON.stringify(profile.voiceprint);
@@ -282,29 +361,26 @@ const verifyVoice = async (req, res) => {
     }
 
     const { match, score } = result;
-    profile.accessLog.push({ timestamp: new Date(), success: match, score });
 
     if (match || score >= VOICE_THRESHOLD) {
-      profile.failedAttempts = 0;
-      profile.isLocked = false;
-      profile.lockUntil = null;
-      profile.lastVerified = new Date();
-      await profile.save();
+      await upsertProfile(userId, {
+        failedAttempts: 0,
+        isLocked: false,
+        lockUntil: null,
+        lastVerified: new Date().toISOString(),
+      });
       console.log(`[Auth] ✅ Voice verified: ${userId} (score: ${score})`);
       return res.json({ success: true, match: true, score, displayName: profile.displayName });
     } else {
-      profile.failedAttempts += 1;
-      const attemptsLeft = MAX_FAILED_ATTEMPTS - profile.failedAttempts;
-      if (profile.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-        profile.isLocked = true;
-        profile.lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
-      }
-      await profile.save();
-      console.warn(`[Auth] ❌ Verify failed: ${userId} (score: ${score}, threshold: ${VOICE_THRESHOLD})`);
+      const failedAttempts = (profile.failedAttempts || 0) + 1;
+      const isLocked = failedAttempts >= MAX_FAILED_ATTEMPTS;
+      const lockUntil = isLocked ? new Date(Date.now() + LOCK_DURATION_MS).toISOString() : null;
+      await upsertProfile(userId, { failedAttempts, isLocked, lockUntil });
+      console.warn(`[Auth] ❌ Verify failed: ${userId} (score: ${score})`);
       return res.json({
         success: false, match: false, score,
-        locked: profile.isLocked, lockUntil: profile.lockUntil,
-        attemptsLeft: Math.max(0, attemptsLeft),
+        locked: isLocked, lockUntil,
+        attemptsLeft: Math.max(0, MAX_FAILED_ATTEMPTS - failedAttempts),
         threshold: VOICE_THRESHOLD,
       });
     }
@@ -321,7 +397,7 @@ const verifyVoice = async (req, res) => {
 const resetLock = async (req, res) => {
   try {
     const userId = process.env.AUTH_USER_ID || 'harsh';
-    await VoiceProfile.findOneAndUpdate({ userId }, { $set: { isLocked: false, failedAttempts: 0, lockUntil: null } });
+    await upsertProfile(userId, { isLocked: false, failedAttempts: 0, lockUntil: null });
     return res.json({ success: true });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
@@ -334,12 +410,16 @@ const resetLock = async (req, res) => {
 const resetProfile = async (req, res) => {
   try {
     const userId = process.env.AUTH_USER_ID || 'harsh';
-    await VoiceProfile.deleteOne({ userId });
-    console.log('[Auth] Voice profile reset for:', userId);
+    await deleteProfile(userId);
+    console.log('[Auth] Profile reset for:', userId);
     return res.json({ success: true, message: 'Profile reset. Please re-enroll.' });
   } catch (err) {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
 
-module.exports = { getStatus, enrollSample, finalizeEnrollment, enrollFace, getFaceProfile, verifyVoice, resetLock, resetProfile };
+module.exports = {
+  getStatus, enrollSample, finalizeEnrollment,
+  enrollFace, getFaceProfile, verifyVoice,
+  resetLock, resetProfile,
+};
