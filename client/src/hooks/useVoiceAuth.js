@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocket } from './useSocket';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WAV file builder (16kHz, Mono, 16-bit PCM) — used for BOTH enroll & verify
@@ -109,7 +109,12 @@ const recordAudio = async (durationMs = 4000) => {
 export const useVoiceAuth = () => {
   const socket = useSocket();
 
-  const [authStatus, setAuthStatus] = useState('checking');
+  const [authStatus, setAuthStatus_raw] = useState('checking');
+  // Wrap setAuthStatus to keep ref in sync
+  const setAuthStatus = useCallback((s) => {
+    authStatusRef.current = s;
+    setAuthStatus_raw(s);
+  }, []);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [score, setScore] = useState(null);
@@ -121,9 +126,15 @@ export const useVoiceAuth = () => {
   const [enrollmentStep, setEnrollmentStep] = useState(0);
   const [enrollmentStatus, setEnrollmentStatus] = useState('idle');
 
-  const lockCountdownRef = useRef(null);
+  const lockCountdownRef  = useRef(null);
+  // Track the live authStatus in a ref so async callbacks can read it
+  // without stale closures — critical for avoiding race conditions.
+  const authStatusRef = useRef('checking');
 
   useEffect(() => {
+    // If previously enrolled (cached), keep 'checking' status and let
+    // SilentBootScreen run face auth first. checkEnrollmentStatus will
+    // update the state once server responds.
     checkEnrollmentStatus();
     return () => { if (lockCountdownRef.current) clearInterval(lockCountdownRef.current); };
   }, []);
@@ -140,21 +151,59 @@ export const useVoiceAuth = () => {
       const data = await res.json();
 
       if (data.error) {
-        setErrorMessage(`DB offline: running in offline mode.`);
-        setAuthStatus('authenticated');
+        // DB has an error — do NOT fail-open. Go to the auth screen based
+        // on enrollment cache. The user must still verify their identity.
+        const cachedEnrolled = localStorage.getItem('jarvis_enrolled') === 'true';
+        if (cachedEnrolled) {
+          setErrorMessage('DB offline — using cached profile. Please authenticate.');
+          if (authStatusRef.current !== 'authenticated') {
+            setAuthStatus('authenticating');
+          }
+        } else {
+          // Not enrolled at all and DB is down — can't proceed safely
+          setErrorMessage('Database offline. Cannot verify enrollment. Please restart JARVIS.');
+          if (authStatusRef.current !== 'authenticated') {
+            setAuthStatus('authenticating');
+          }
+        }
         return;
       }
 
       setDisplayName(data.displayName || 'Sir');
 
-      // Either voice OR face enrolled is enough to show the auth screen
-      const anyEnrolled = data.isEnrolled || data.faceEnrolled;
+      // ── RACE GUARD: If SilentBootScreen already authenticated the user,
+      // do NOT override it. Just update non-critical fields and return.
+      if (authStatusRef.current === 'authenticated') {
+        setIsEnrolled(true);
+        localStorage.setItem('jarvis_enrolled', 'true');
+        return;
+      }
 
-      if (!anyEnrolled) {
+      // ── Enrollment priority: localStorage cache > server response ─────────────
+      // If the cache says enrolled, ALWAYS trust it and go to auth — the server
+      // may have stale data (DB reset, migration, profile data mismatch).
+      // Only first-time users (no cache AND server confirms not enrolled) go to
+      // enrollment. This prevents re-enrolling a user who is already enrolled.
+      const cachedEnrolled = localStorage.getItem('jarvis_enrolled') === 'true';
+      const serverEnrolled = data.isEnrolled || data.faceEnrolled;
+
+      if (!serverEnrolled && !cachedEnrolled) {
+        // Truly first-time user — no local cache and server confirms not enrolled
         setIsEnrolled(false);
         setAuthStatus('enrolling');
         return;
       }
+
+      if (!serverEnrolled && cachedEnrolled) {
+        // Cache says enrolled but server disagrees → trust cache, skip enrollment
+        console.log('[VoiceAuth] Server says not enrolled but cache says enrolled — trusting cache.');
+        setIsEnrolled(true);
+        setAuthStatus('authenticating');
+        return;
+      }
+
+      // Mark enrolled in localStorage so next boot skips the enrollment screen
+      localStorage.setItem('jarvis_enrolled', 'true');
 
       setIsEnrolled(true);
 
@@ -166,8 +215,21 @@ export const useVoiceAuth = () => {
 
       setAuthStatus('authenticating');
     } catch (err) {
-      setErrorMessage('Server unreachable. Offline mode.');
-      setAuthStatus('authenticated');
+      // Server unreachable — do NOT fail-open. Authentication is required.
+      // If the user was enrolled (cached), send them to the auth screen.
+      // If not enrolled, show an error so they know JARVIS can't start.
+      const cachedEnrolled = localStorage.getItem('jarvis_enrolled') === 'true';
+      if (cachedEnrolled) {
+        setErrorMessage('Server unreachable. Please ensure JARVIS server is running and try again.');
+        if (authStatusRef.current !== 'authenticated') {
+          setAuthStatus('authenticating');
+        }
+      } else {
+        setErrorMessage('Server unreachable. Cannot start JARVIS. Please check the server.');
+        if (authStatusRef.current !== 'authenticated') {
+          setAuthStatus('authenticating');
+        }
+      }
     }
   }, []);
 
@@ -220,6 +282,8 @@ export const useVoiceAuth = () => {
     const data = await res.json();
     if (data.success) {
       setIsEnrolled(true);
+      // Prime the cache so next boot skips enrollment screen
+      localStorage.setItem('jarvis_enrolled', 'true');
       // Do NOT redirect here — face enrollment comes next
     }
     return data;
@@ -228,6 +292,7 @@ export const useVoiceAuth = () => {
   // ── When enrollment is fully complete (step 6), move to auth ────────────────
   useEffect(() => {
     if (enrollmentStep === 6) {
+      localStorage.setItem('jarvis_enrolled', 'true');
       const t = setTimeout(() => setAuthStatus('authenticating'), 2500);
       return () => clearTimeout(t);
     }
@@ -290,6 +355,8 @@ export const useVoiceAuth = () => {
       const res = await fetch(`${SERVER_URL}/api/auth/reset-profile`, { method: 'POST' });
       const data = await res.json();
       if (data.success) {
+        // Clear the cached enrollment state so next boot goes to enrollment
+        localStorage.removeItem('jarvis_enrolled');
         setAuthStatus('enrolling');
         setEnrollmentStep(0);
         setEnrollmentStatus('idle');
