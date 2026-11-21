@@ -1,5 +1,5 @@
 # ---------------------------------------------------------------
-# J.A.R.V.I.S. — .gitignore
+# J.A.R.V.I.S. ï¿½ .gitignore
 # ---------------------------------------------------------------
 
 # -- Environment / Secrets ----------------------------------------
@@ -93,3 +93,11 @@ desktop.ini
 *.tmp
 *.temp
 ~$*
+# -- Personal / Runtime Data (never commit) ------------------------
+# Real phone numbers and runtime state, written by the Flask server
+python/contacts.json
+python/reminders.json
+# Face biometric profile written by sync-profile.js
+data/profile.json
+# Stray scratch copy of the assistant page
+electron/assistant_check.txt
