@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta http-equiv="Content-Security-Policy"
-  content="default-src 'self' http://localhost:5000 https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; media-src *; connect-src *;" />
+  content="default-src 'self' http://localhost:5000 https://cdn.jsdelivr.net https://fonts.googleapis.com https://fonts.gstatic.com; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; worker-src blob:; media-src *; connect-src *;" />
 <title>JARVIS Assistant</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
@@ -76,6 +76,11 @@ html, body {
 }
 #mini:hover { border-color:rgba(0,212,255,.45); box-shadow:0 0 18px rgba(0,212,255,.2),0 4px 20px rgba(0,0,0,.5); }
 .mini-dot { width:8px; height:8px; border-radius:50%; background:#00d4ff; box-shadow:0 0 6px #00d4ff; animation:dotPulse 2s ease-in-out infinite; flex-shrink:0; -webkit-app-region:no-drag; }
+/* Auth/health status colours for the mini dot:
+   green  = authenticated AND server reachable (JARVIS working)
+   red    = not authenticated OR server unreachable (not working) */
+.mini-dot.authed       { background:#34d399; box-shadow:0 0 8px #34d399; }
+.mini-dot.disconnected { background:#f87171; box-shadow:0 0 8px #f87171; animation:none; }
 .mini-label { font-family:'Share Tech Mono',monospace; font-size:10px; color:rgba(0,212,255,.8); letter-spacing:.15em; flex:1; }
 .mini-mic { font-size:9px; color:rgba(0,212,255,.4); -webkit-app-region:no-drag; }
 /* Listening state on mini pill */
@@ -374,6 +379,12 @@ let socket      = null;
 let isThinking  = false;
 let isRecording = false;
 let interimDiv  = null;
+// True when the main JARVIS website tab is focused — pauses overlay WSR
+// to avoid double wake-word response.
+let hudActive   = false;
+// Auth/health status driving the mini-dot colour (green=working, red=not).
+let isAuthenticated = false;
+let serverReachable = false;
 
 // ═══════════════════════════════════════════════════════════════════
 // ELEMENTS
@@ -381,6 +392,7 @@ let interimDiv  = null;
 const $cam        = document.getElementById('cam');
 const $greet      = document.getElementById('greeting');
 const $mini       = document.getElementById('mini');
+const $miniDot    = $mini.querySelector('.mini-dot');
 const $locked     = document.getElementById('locked');
 const $chat       = document.getElementById('chat');
 const $gText      = document.getElementById('g-text');
@@ -422,7 +434,33 @@ function setState(s) {
     const map = { scanning:'scanning', greeting:'greeting', mini:'mini', locked:'locked', rescanning:'locked', chat:'chat' };
     window.jarvisElectron.setState(map[s] || 'mini');
   }
+
+  if (s === 'mini') updateMiniDot();
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// MINI-DOT STATUS  (green = authenticated & server reachable = working,
+//                   red = not authenticated OR server unreachable)
+// ═══════════════════════════════════════════════════════════════════
+function updateMiniDot() {
+  if (!$miniDot) return;
+  const working = isAuthenticated && serverReachable;
+  $miniDot.classList.toggle('authed', working);
+  $miniDot.classList.toggle('disconnected', !working);
+}
+
+// Poll the Node server so the dot flips to red if JARVIS stops working,
+// and back to green once it's reachable again.
+async function pingServerHealth() {
+  try {
+    const r = await fetchWithTimeout(`${SERVER}/api/health`, {}, 2500);
+    serverReachable = r.ok;
+  } catch {
+    serverReachable = false;
+  }
+  updateMiniDot();
+}
+setInterval(pingServerHealth, 8000);
 
 // ═══════════════════════════════════════════════════════════════════
 // GREETING BUBBLE — typewriter + BUBBLE SHRINK ANIMATION to pill
@@ -509,11 +547,16 @@ let vadSilenceFrames = 0;
 let vadIsRecording   = false;
 let vadActive        = false;
 
-const VAD_VOICE_THRESH  = 22;   // RMS threshold to count as "voice"
-const VAD_VOICE_FRAMES  = 3;    // frames of voice before recording starts (~300ms)
-const VAD_SILENCE_FRAMES= 9;    // frames of silence before recording stops (~900ms)
+const VAD_VOICE_THRESH  = 5;    // RMS threshold — lowered from 10 to catch quiet/normal speech
+const VAD_VOICE_FRAMES  = 1;    // 1 frame before recording starts (~100ms) — catches first syllable
+const VAD_SILENCE_FRAMES= 6;    // frames of silence before recording stops (~600ms)
 const VAD_POLL_MS       = 100;  // poll every 100ms
-const VAD_MIN_BYTES     = 800;  // ignore tiny blobs (just noise)
+const VAD_MIN_BYTES     = 200;  // accept shorter clips
+
+let lastWakeTrigger  = 0;       // dedup: ignore duplicate wake triggers within 2s
+let faceAuthFailedAt = 0;       // timestamp of last face auth failure — skip re-scan if recent
+let vadListenWindow  = false;   // true for 8s after bare wake word — next speech = command
+let vadListenTimer   = null;    // timer to clear vadListenWindow
 
 async function startVAD() {
   if (vadActive) return;
@@ -588,6 +631,11 @@ async function startVAD() {
   } catch (e) {
     console.error('[VAD] ❌ Failed to start:', e.message);
     vadActive = false;
+    // Auto-restart VAD after 3 seconds if not mid-scan/greeting
+    if (appState !== 'scanning' && appState !== 'greeting' && appState !== 'rescanning') {
+      console.log('[VAD] 🔄 Will retry in 3s...');
+      setTimeout(() => startVAD(), 3000);
+    }
   }
 }
 
@@ -625,34 +673,62 @@ async function handleAudioBlob(blob, mimeType) {
       body: JSON.stringify({ audio: base64, mimeType }),
     });
 
-    if (!res.ok) return;
-    const { transcript = '' } = await res.json();
+    if (!res.ok) {
+      console.warn('[VAD] Transcribe HTTP error:', res.status);
+      return;
+    }
+    const { transcript = '', error: tErr } = await res.json();
+    if (tErr) console.warn('[VAD] Transcribe server error:', tErr);
     if (!transcript) return;
 
-    const t = transcript.toLowerCase().trim();
+    const now = Date.now();
+    const t   = transcript.toLowerCase().trim();
     console.log('[VAD] 📝 Transcript:', t);
 
     const isWake   = t.includes('jarvis');
     const isUnlock = t.includes('authenticate') || t.includes('unlock') || t.includes('verify');
 
-    // ── MINI: wake word → open chat ──────────────────────────────
-    if (appState === 'mini' && isWake) {
-      const cmd = t.replace(/hello jarvis/g,'').replace(/hey jarvis/g,'')
-                   .replace(/ok jarvis/g,'').replace(/jarvis/g,'').trim();
-      speak('Yes, Sir?');
-      openChat();
-      if (cmd.length > 2) setTimeout(() => sendMessage(cmd), 800);
+    // ── Active listen window: fired after bare wake word, awaiting follow-on ─
+    if (!isWake && vadListenWindow) {
+      clearTimeout(vadListenTimer);
+      vadListenWindow = false;
+      console.log('[VAD] 🎤 Active listen → command:', t);
+      if (t.length > 1) {
+        if (appState !== 'chat') openChat();
+        setTimeout(() => sendMessage(transcript), appState === 'chat' ? 0 : 700);
+      }
       return;
     }
 
-    // ── LOCKED: voice unlock ──────────────────────────────────────
+    // ── MINI: wake word → open chat ──────────────────────────────
+    if (appState === 'mini' && isWake) {
+      if (now - lastWakeTrigger < 2000) { console.log('[VAD] dedup — ignoring duplicate wake'); return; }
+      lastWakeTrigger = now;
+      const cmd = t.replace(/hello\s+jarvis/gi,'').replace(/hey\s+jarvis/gi,'')
+                   .replace(/ok\s+jarvis/gi,'').replace(/\bjarvis\b/gi,'').trim();
+      speak('Yes, Sir?');
+      openChat();
+      if (cmd.length > 1) {
+        setTimeout(() => sendMessage(cmd), 800);
+      } else {
+        // Bare wake word — wait for follow-on utterance (8 seconds)
+        vadListenWindow = true;
+        clearTimeout(vadListenTimer);
+        vadListenTimer = setTimeout(() => { vadListenWindow = false; }, 8000);
+      }
+      return;
+    }
+
+    // ── LOCKED: wake word → skip face re-scan, go straight to voice auth ──
     if (appState === 'locked' && (isWake || isUnlock)) {
+      if (now - lastWakeTrigger < 3000) { console.log('[VAD] dedup — ignoring locked trigger'); return; }
+      lastWakeTrigger = now;
       startReauth();
       return;
     }
 
     // ── CHAT: voice command (continuous listening while chat open) ─
-    if (appState === 'chat' && !isThinking && t.length > 2) {
+    if (appState === 'chat' && !isThinking && t.length > 0) {
       if (interimDiv) { interimDiv.remove(); interimDiv = null; }
       sendMessage(transcript); // send original-case transcript
     }
@@ -660,6 +736,138 @@ async function handleAudioBlob(blob, mimeType) {
   } catch (e) {
     console.warn('[VAD] Transcription error:', e.message);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// WEB SPEECH API — parallel wake-word listener (works without server)
+// Runs alongside VAD as a reliable fallback for "Hello JARVIS"
+// ═══════════════════════════════════════════════════════════════════
+let wsr = null;  // Web Speech Recognition instance
+let wsrActive = false;
+let wsrNetworkBackoff = 0; // grows on repeated 'network' errors
+let wsrGaveUp = false;     // true once WSR is abandoned (Electron has no Google key)
+
+function startWSR() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { console.log('[WSR] Not supported in this build.'); return; }
+  if (wsrActive) return;
+  if (wsrGaveUp) return; // Web Speech unavailable here — VAD handles wake word
+  // Web Speech relies on Google's speech server, whose API key ships ONLY in
+  // official Chrome. In Electron it ALWAYS fails with 'network', so skip it
+  // entirely and let VAD + /api/transcribe handle wake-word detection.
+  if (/Electron/i.test(navigator.userAgent)) {
+    if (!wsrGaveUp) {
+      wsrGaveUp = true;
+      console.log('[WSR] Skipped in Electron — VAD/transcribe handles wake word.');
+    }
+    return;
+  }
+
+  try {
+    wsr = new SpeechRecognition();
+    wsr.continuous    = true;
+    wsr.interimResults = false;
+    wsr.lang          = 'en-US';
+    wsr.maxAlternatives = 3;
+
+    wsr.onresult = (event) => {
+      wsrNetworkBackoff = 0; // backend reachable — clear error backoff
+      wsrGaveUp = false;
+      const result = event.results[event.results.length - 1];
+      // Collect all alternatives for best chance of matching wake word
+      const transcripts = Array.from({ length: result.length }, (_, i) =>
+        result[i].transcript.toLowerCase().trim()
+      );
+      console.log('[WSR] Heard:', transcripts);
+
+      for (const t of transcripts) {
+        const isWake   = t.includes('jarvis') || t.includes('j.a.r.v.i.s');
+        const isUnlock = t.includes('authenticate') || t.includes('unlock') || t.includes('verify') || t.includes('open');
+
+        // ── MINI: wake word → open chat ──────────────────────────────
+        if (appState === 'mini' && isWake) {
+          const now = Date.now();
+          if (now - lastWakeTrigger < 2000) return; // dedup
+          lastWakeTrigger = now;
+          const cmd = t
+            .replace(/hello\s+jarvis/gi, '')
+            .replace(/hey\s+jarvis/gi, '')
+            .replace(/ok\s+jarvis/gi, '')
+            .replace(/\bjarvis\b/gi, '')
+            .trim();
+          speak('Yes, Sir?');
+          openChat();
+          if (cmd.length > 1) setTimeout(() => sendMessage(cmd), 800);
+          return;
+        }
+
+        // ── LOCKED: wake word → skip face re-scan, go to voice auth ──
+        if (appState === 'locked' && (isWake || isUnlock)) {
+          const now = Date.now();
+          if (now - lastWakeTrigger < 3000) return; // dedup
+          lastWakeTrigger = now;
+          startReauth();
+          return;
+        }
+
+        // ── CHAT: continuous voice commands ──────────────────────────
+        if (appState === 'chat' && !isThinking && t.length > 3) {
+          if (interimDiv) { interimDiv.remove(); interimDiv = null; }
+          const original = result[0].transcript.trim();
+          sendMessage(original);
+          return;
+        }
+      }
+    };
+
+    wsr.onerror = (e) => {
+      console.warn('[WSR] Error:', e.error);
+      // Auto-restart unless it's a permanent error
+      if (e.error !== 'not-allowed' && e.error !== 'service-not-allowed') {
+        wsrActive = false;
+        // 'network' in Electron/embedded Chromium means there is NO Google
+        // speech key — Web Speech can never work here. After a few failures,
+        // abandon WSR entirely and rely on the VAD + /api/transcribe path
+        // (which is the real wake-word engine). This stops the 1/sec error loop.
+        if (e.error === 'network') {
+          wsrNetworkBackoff = Math.min((wsrNetworkBackoff || 0) + 1, 10);
+          if (wsrNetworkBackoff >= 3) {
+            if (!wsrGaveUp) {
+              wsrGaveUp = true;
+              console.warn('[WSR] Web Speech unavailable in this build — using VAD/transcribe only.');
+            }
+            return; // do NOT restart
+          }
+          setTimeout(() => startWSR(), Math.min(2000 * 2 ** wsrNetworkBackoff, 60000));
+        } else {
+          setTimeout(() => startWSR(), 2000);
+        }
+      }
+    };
+
+    wsr.onend = () => {
+      wsrActive = false;
+      // Don't restart if we've abandoned WSR (unsupported backend).
+      if (wsrGaveUp) return;
+      // Always restart WSR unless mid-scan/greeting
+      // Dedup guard prevents double wake-word response even if both WSR + VAD fire
+      if (appState !== 'scanning' && appState !== 'greeting' && appState !== 'rescanning') {
+        setTimeout(() => startWSR(), 500);
+      }
+    };
+
+    wsr.start();
+    wsrActive = true;
+    console.log('[WSR] ✅ Wake-word listener active (Web Speech API)');
+  } catch (e) {
+    console.warn('[WSR] Failed to start:', e.message);
+  }
+}
+
+function stopWSR() {
+  wsrActive = false;
+  try { wsr?.stop(); } catch {}
+  wsr = null;
 }
 
 
@@ -681,6 +889,17 @@ function connectSocket() {
 
   socket.on('disconnect', () => {
     $status.textContent = 'CONNECTION LOST — RECONNECTING…';
+  });
+
+  // ── Browser HUD active/inactive broadcast ─────────────────────────────────
+  // When the main JARVIS website (localhost:5173) tab is focused, it emits
+  // this event so the overlay can pause its own WSR wake-word listener.
+  // This prevents double-response (both overlay + website reacting at once).
+  socket.on('browser:hud-active', (data) => {
+    hudActive = !!(data?.active);
+    console.log('[Socket] browser:hud-active =>', hudActive);
+    // Note: WSR is no longer paused when browser HUD is active.
+    // Dedup guard (lastWakeTrigger) prevents double-response if both fire.
   });
 
   socket.on('jarvis:thinking', () => {
@@ -848,11 +1067,14 @@ async function toggleChatMic() {
 // ═══════════════════════════════════════════════════════════════════
 // FACE AUTHENTICATION
 // ═══════════════════════════════════════════════════════════════════
+// NOTE: runFaceAuth() does NOT set any state itself.
+// The caller is responsible for setting the appropriate state
+// (either 'scanning' in boot(), or 'rescanning' in startReauth())
+// BEFORE calling this function. This ensures the UI stays visible.
 async function runFaceAuth() {
-  setState('scanning');
   let stream = null;
   try {
-    const res = await fetch(`${SERVER}/api/auth/face-profile`).catch(() => null);
+    const res = await fetchWithTimeout(`${SERVER}/api/auth/face-profile`, {}, 6000).catch(() => null);
     if (!res?.ok) throw new Error('no-profile');
     const profile = await res.json();
     if (!profile.faceEnrolled || !profile.descriptor) throw new Error('no-profile');
@@ -863,10 +1085,14 @@ async function runFaceAuth() {
     await $cam.play().catch(() => {});
     await delay(800);
 
-    await Promise.all([
-      faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+    // Load face-api models from CDN, but never let a slow/offline CDN hang boot.
+    await Promise.race([
+      Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      ]),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('model-timeout')), 15000)),
     ]);
 
     const dets = [];
@@ -885,7 +1111,8 @@ async function runFaceAuth() {
 
     const stored = new Float32Array(profile.descriptor);
     const best = Math.min(...dets.map(d => faceapi.euclideanDistance(d.descriptor, stored)));
-    if (best >= 0.50) throw new Error('no-match');
+    console.log('[Auth] Face distance:', best.toFixed(3), '(threshold: 0.62)');
+    if (best >= 0.62) throw new Error('no-match'); // more permissive threshold
 
     return true;
   } catch (e) {
@@ -900,16 +1127,172 @@ function stopStream(stream) {
   $cam.srcObject = null;
 }
 
+// Guard: prevents two simultaneous auth attempts (race condition fix)
+let isAuthInProgress = false;
+
 async function startReauth() {
-  stopVAD(); // pause VAD while camera is active
-  setState('rescanning');
-  const ok = await runFaceAuth();
-  if (ok) {
-    showGreeting(true, () => { setState('mini'); startVAD(); });
-  } else {
-    setState('locked');
-    startVAD();
+  // ── Race condition guard ─────────────────────────────────────────
+  if (isAuthInProgress) {
+    console.log('[Auth] Already in progress — ignoring duplicate trigger');
+    return;
   }
+  isAuthInProgress = true;
+
+  // Pause background listeners while auth is running
+  stopVAD();
+  stopWSR();
+
+  // Show rescanning spinner — keep window visible
+  setState('rescanning');
+  if (window.jarvisElectron) window.jarvisElectron.setState('locked');
+
+  // ── Step 1: Try face auth ONLY if it hasn't failed recently (last 60s) ──
+  // Avoids spinning the camera repeatedly when face auth conditions haven't changed.
+  const faceCooledDown = (Date.now() - faceAuthFailedAt) > 60000;
+  let faceOk = false;
+
+  if (faceCooledDown) {
+    try {
+      faceOk = await runFaceAuth();
+    } catch (e) {
+      console.warn('[Auth] Face auth threw:', e.message);
+      faceOk = false;
+    }
+    if (!faceOk) faceAuthFailedAt = Date.now();
+  } else {
+    console.log('[Auth] Skipping face scan — failed recently, going straight to voice auth');
+  }
+
+  if (faceOk) {
+    isAuthInProgress = false;
+    isAuthenticated = true;
+    showGreeting(true, () => {
+      setState('mini');
+      startVAD();
+      startWSR();
+    });
+    return;
+  }
+
+  // ── Step 2: Face failed/skipped → try VOICE auth ─────────────────
+  console.log('[Auth] Trying voice verification...');
+  $lockLbl.textContent = 'SPEAK NOW';
+  $lockMic.style.display = '';
+  $locked.classList.remove('scanning');
+  setState('locked');
+  speak('Say your passphrase to verify.');
+
+  let voiceOk = false;
+  try {
+    voiceOk = await runVoiceAuth();
+  } catch (e) {
+    console.warn('[Auth] Voice auth threw:', e.message);
+    voiceOk = false;
+  }
+
+  // Restore locked pill styling
+  $locked.classList.remove('voice-scanning');
+  $lockLbl.textContent = 'LOCKED';
+  isAuthInProgress = false;
+
+  if (voiceOk) {
+    // Voice matched enrolled profile
+    isAuthenticated = true;
+    showGreeting(true, () => {
+      setState('mini');
+      startVAD();
+      startWSR();
+    });
+  } else {
+    // ── Step 3: Both failed — FAIL-OPEN so JARVIS is still usable ──
+    // This prevents the user being permanently locked out due to
+    // camera/lighting/CDN issues unrelated to their identity.
+    console.warn('[Auth] Both face and voice auth failed — failing open for usability');
+    isAuthenticated = false;
+    speak('Verification failed. Proceeding with limited access.');
+    showGreeting(true, () => {
+      setState('mini');
+      startVAD();
+      startWSR();
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// VOICE AUTHENTICATION FALLBACK
+// Records 3 seconds of audio via MediaRecorder → POSTs to /api/auth/verify
+// ═══════════════════════════════════════════════════════════════════
+async function runVoiceAuth() {
+  return new Promise((resolve) => {
+    const RECORD_MS = 3500; // record for 3.5 seconds
+
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+      .then((stream) => {
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus' : 'audio/webm';
+        const chunks = [];
+        const recorder = new MediaRecorder(stream, { mimeType: mime });
+
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          const blob = new Blob(chunks, { type: mime });
+
+          if (blob.size < 500) {
+            console.warn('[VoiceAuth] Recording too short — no voice detected');
+            return resolve(false);
+          }
+
+          // Convert blob to FormData and POST to /api/auth/verify
+          try {
+            const formData = new FormData();
+            formData.append('audio', blob, 'verify.webm');
+
+            const res = await fetch(`${SERVER}/api/auth/verify`, {
+              method: 'POST',
+              body: formData,
+            });
+
+            if (!res.ok) {
+              console.warn('[VoiceAuth] Server error:', res.status);
+              return resolve(false);
+            }
+
+            const data = await res.json();
+            console.log('[VoiceAuth] Result:', data);
+
+            if (data.success && data.match) {
+              return resolve(true);
+            } else if (data.locked) {
+              console.warn('[VoiceAuth] Account locked until:', data.lockUntil);
+              speak('Too many failed attempts. System locked.');
+              return resolve(false);
+            } else {
+              return resolve(false);
+            }
+          } catch (err) {
+            console.error('[VoiceAuth] Fetch error:', err.message);
+            return resolve(false);
+          }
+        };
+
+        recorder.start();
+        console.log('[VoiceAuth] 🎙 Recording for', RECORD_MS, 'ms...');
+
+        // Pulse mic icon while recording
+        $lockMic.style.animation = 'recPulse 0.8s ease-in-out infinite';
+
+        setTimeout(() => {
+          $lockMic.style.animation = '';
+          if (recorder.state !== 'inactive') recorder.stop();
+        }, RECORD_MS);
+      })
+      .catch((err) => {
+        console.error('[VoiceAuth] getUserMedia failed:', err.message);
+        resolve(false);
+      });
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -921,6 +1304,12 @@ $close.addEventListener('click', () => closeChat());
 $micBtn.addEventListener('click', () => toggleChatMic());
 $form.addEventListener('submit', (e) => { e.preventDefault(); sendMessage($input.value); });
 $input.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeChat(); });
+
+// Right-click anywhere on the overlay → native menu (Re-authenticate, etc.)
+document.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  if (window.jarvisElectron?.showContextMenu) window.jarvisElectron.showContextMenu();
+});
 
 // Electron main process commands
 if (window.jarvisElectron) {
@@ -942,47 +1331,120 @@ if (window.jarvisElectron) {
 // ═══════════════════════════════════════════════════════════════════
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// ── fetch() with a hard timeout so boot() can NEVER hang on a slow/starting
+//    server. Without this, a cold-boot fetch to a half-started server keeps the
+//    overlay stuck in the invisible 1×1 'scanning' state → mini HUD unresponsive
+//    and the wake-word listener (VAD) never starts.
+async function fetchWithTimeout(url, opts = {}, ms = 6000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+// ── Wait until the Node server (port 5000) is reachable before running auth.
+//    On a fresh PC boot, Electron is still spawning the server when the overlay
+//    loads. We poll /api/health so the auth profile fetches actually succeed.
+//    If the server never comes up, we still proceed (fail-safe) so the mini
+//    pill appears and stays responsive — VAD will connect once the server is up.
+async function waitForServer(maxMs = 45000) {
+  const start = Date.now();
+  while (Date.now() - start < maxMs) {
+    try {
+      const r = await fetchWithTimeout(`${SERVER}/api/health`, {}, 2500);
+      if (r.ok) { console.log('[Boot] ✅ Server reachable'); return true; }
+    } catch {}
+    await delay(1500);
+  }
+  console.warn('[Boot] ⚠ Server not reachable after wait — proceeding anyway');
+  return false;
+}
+
 async function boot() {
-  console.log('[JARVIS] Booting silent assistant…');
+  console.log('[JARVIS] Booting silent assistant...');
   setState('scanning');
   await delay(300);
 
-  // Check if a face profile exists before attempting auth.
-  // If no profile is enrolled, skip face-lock entirely and go straight to mini.
-  let hasProfile = false;
+  // Cold boot: the Node server may still be starting. Wait for it so the auth
+  // profile fetches below actually work (and boot never hangs on a dead socket).
+  serverReachable = await waitForServer();
+
+  // Check if a face profile and/or voice profile exists.
+  let hasFaceProfile  = false;
+  let hasVoiceProfile = false;
   try {
-    const profileRes = await fetch(`${SERVER}/api/auth/face-profile`).catch(() => null);
+    const profileRes = await fetchWithTimeout(`${SERVER}/api/auth/face-profile`, {}, 6000).catch(() => null);
     if (profileRes?.ok) {
       const profile = await profileRes.json();
-      hasProfile = !!(profile.faceEnrolled && profile.descriptor);
+      hasFaceProfile = !!(profile.faceEnrolled && profile.descriptor);
+    }
+  } catch {}
+  try {
+    const statusRes = await fetchWithTimeout(`${SERVER}/api/auth/status`, {}, 6000).catch(() => null);
+    if (statusRes?.ok) {
+      const status = await statusRes.json();
+      hasVoiceProfile = !!status.isEnrolled;
     }
   } catch {}
 
-  if (!hasProfile) {
-    // No face profile enrolled — go directly to unlocked/mini state
-    console.log('[Boot] No face profile — skipping auth, going to mini');
+  // ── No biometric profiles at all ──
+  // First run or dev mode: nothing to authenticate against → skip auth and
+  // go straight to mini. This is the ONLY case where we fail-open.
+  if (!hasFaceProfile && !hasVoiceProfile) {
+    console.log('[Boot] No biometric profiles — skipping auth, going to mini');
+    isAuthenticated = true;
     showGreeting(true, () => {
       setState('mini');
-      startVAD(); // Start VAD-based wake word detection
+      startVAD();
+      startWSR();
     });
     return;
   }
 
-  // Face auth
-  const faceOk = await runFaceAuth();
-  console.log('[Boot] Face auth:', faceOk);
+  // ── Attempt face auth if a face profile exists ──
+  // Camera must be available and the correct person must be in frame.
+  if (hasFaceProfile) {
+    setState('scanning');
+    // Give the camera 1.5s to warm up before scanning
+    await delay(1500);
+    let faceOk = false;
+    try { faceOk = await runFaceAuth(); } catch (e) { console.warn('[Boot] Face threw:', e.message); }
+    console.log('[Boot] Face auth:', faceOk);
 
-  if (faceOk) {
-    showGreeting(true, () => {
-      setState('mini');
-      startVAD(); // Start VAD-based wake word detection
-    });
-  } else {
-    showGreeting(false, () => {
-      setState('locked');
-      startVAD(); // Still listen for "authenticate me"
-    });
+    if (!faceOk) faceAuthFailedAt = Date.now();
+
+    if (faceOk) {
+      // ✅ Correct person recognised → authenticated
+      isAuthenticated = true;
+      showGreeting(true, () => {
+        setState('mini');
+        startVAD();
+        startWSR();
+      });
+      return;
+    }
+
+    // ❌ Face auth failed (camera off, wrong person, low light, timeout, etc.)
+    // Do NOT fail-open. Show the LOCKED pill and require voice authentication.
+    console.warn('[Boot] Face auth failed — requiring voice authentication. Showing locked state.');
+    isAuthenticated = false;
+    setState('locked');
+    startVAD();
+    startWSR();
+    speak('Identity not verified. Voice authentication required.');
+    return;
   }
+
+  // No face profile but has a voice profile → go straight to voice auth (locked)
+  console.log('[Boot] No face profile but voice profile exists — showing locked state for voice auth.');
+  isAuthenticated = false;
+  setState('locked');
+  startVAD();
+  startWSR();
+  speak('Voice authentication required.');
 }
 
 // ─── Tray: test mic ───────────────────────────────────────────────
