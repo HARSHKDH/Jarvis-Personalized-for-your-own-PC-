@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron . --no-sandbox",
-    "dev": "electron . --inspect --no-sandbox"
+    "dev": "electron . --inspect=9229 --no-sandbox"
   },
   "dependencies": {
     "electron": "^31.0.0"
