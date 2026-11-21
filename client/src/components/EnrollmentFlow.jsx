@@ -29,7 +29,7 @@ const speak = (text) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // Corner brackets
 // ─────────────────────────────────────────────────────────────────────────────
-const Corner = ({ color = '#00d4ff' }) => (
+const Corner = ({ color = 'var(--cyan)' }) => (
   <>
     {[['top:-1px;left:-1px', 'borderTop,borderLeft'], ['top:-1px;right:-1px', 'borderTop,borderRight'],
       ['bottom:-1px;left:-1px', 'borderBottom,borderLeft'], ['bottom:-1px;right:-1px', 'borderBottom,borderRight']
@@ -45,13 +45,13 @@ const Corner = ({ color = '#00d4ff' }) => (
 // ─────────────────────────────────────────────────────────────────────────────
 // Mic bars
 // ─────────────────────────────────────────────────────────────────────────────
-const MicBars = ({ active, color = '#00d4ff', count = 18 }) => (
+const MicBars = ({ active, color = 'var(--cyan)', count = 18 }) => (
   <div style={{ display: 'flex', alignItems: 'flex-end', gap: '3px', height: '38px', justifyContent: 'center' }}>
     {Array.from({ length: count }, (_, i) => {
       const h = active ? 6 + Math.abs(Math.sin(i * Math.PI / count)) * 30 : 4;
       return <div key={i} style={{
         width: 3, borderRadius: 2, height: `${h}px`,
-        background: active ? color : 'rgba(0,212,255,0.12)',
+        background: active ? color : 'rgba(var(--cyan-rgb),0.12)',
         boxShadow: active ? `0 0 6px ${color}` : 'none',
         animation: active ? `waveformBar ${0.3 + (i % 5) * 0.1}s ease-in-out ${(i * 50) % 500}ms infinite alternate` : 'none',
         transition: 'height 0.12s, background 0.25s',
@@ -78,10 +78,10 @@ const CountdownDisplay = ({ onDone }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-      <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: '#fbbf24', letterSpacing: '0.3em' }}>RECORDING IN</div>
+      <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--gold)', letterSpacing: '0.3em' }}>RECORDING IN</div>
       <div key={num} style={{
         fontFamily: 'var(--font-hud)', fontSize: '72px', fontWeight: '900',
-        color: '#fbbf24', textShadow: '0 0 30px rgba(251,191,36,0.9)',
+        color: 'var(--gold)', textShadow: '0 0 30px rgba(var(--gold-rgb),0.9)',
         lineHeight: 1, animation: 'countdownPop 0.9s ease-out forwards',
       }}>{num}</div>
     </div>
@@ -105,14 +105,15 @@ const RecordRing = ({ duration }) => {
   return (
     <div style={{ position: 'relative', width: 100, height: 100 }}>
       <svg width={100} height={100} style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx={50} cy={50} r={r} fill="none" stroke="rgba(248,113,113,0.12)" strokeWidth={5} />
-        <circle cx={50} cy={50} r={r} fill="none" stroke="#f87171" strokeWidth={5}
+        {/* stroke set via style, not attribute — var() is invalid in SVG attributes */}
+        <circle cx={50} cy={50} r={r} fill="none" strokeWidth={5} style={{ stroke: 'rgba(var(--red-rgb),0.12)' }} />
+        <circle cx={50} cy={50} r={r} fill="none" strokeWidth={5}
           strokeDasharray={`${(1 - elapsed) * circ} ${circ}`} strokeLinecap="round"
-          style={{ filter: 'drop-shadow(0 0 8px rgba(248,113,113,0.8))', transition: 'stroke-dasharray 0.04s linear' }} />
+          style={{ stroke: 'var(--red)', filter: 'drop-shadow(0 0 8px rgba(var(--red-rgb),0.8))', transition: 'stroke-dasharray 0.04s linear' }} />
       </svg>
       <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        <span style={{ fontFamily: 'var(--font-hud)', fontSize: '22px', fontWeight: '900', color: '#f87171', lineHeight: 1 }}>{remaining}</span>
-        <span style={{ fontFamily: 'var(--font-hud)', fontSize: '7px', color: 'rgba(248,113,113,0.6)', letterSpacing: '0.1em' }}>SEC LEFT</span>
+        <span style={{ fontFamily: 'var(--font-hud)', fontSize: '22px', fontWeight: '900', color: 'var(--red)', lineHeight: 1 }}>{remaining}</span>
+        <span style={{ fontFamily: 'var(--font-hud)', fontSize: '7px', color: 'rgba(var(--red-rgb),0.6)', letterSpacing: '0.1em' }}>SEC LEFT</span>
       </div>
     </div>
   );
@@ -124,15 +125,15 @@ const RecordRing = ({ duration }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const QualityBadge = ({ quality, rms }) => {
   const MAP = {
-    good: { c: '#34d399', bg: 'rgba(52,211,153,0.12)', label: '✓ CLEAR VOICE — ACCEPTED' },
-    ok:   { c: '#fbbf24', bg: 'rgba(251,191,36,0.12)',  label: '◑ DETECTED — ACCEPTED' },
-    poor: { c: '#f87171', bg: 'rgba(248,113,113,0.12)', label: '✗ TOO QUIET — RETRYING' },
+    good: { c: 'var(--green)', bg: 'rgba(var(--green-rgb),0.12)', label: '✓ CLEAR VOICE — ACCEPTED' },
+    ok:   { c: 'var(--gold)', bg: 'rgba(var(--gold-rgb),0.12)',  label: '◑ DETECTED — ACCEPTED' },
+    poor: { c: 'var(--red)', bg: 'rgba(var(--red-rgb),0.12)', label: '✗ TOO QUIET — RETRYING' },
   };
   const q = MAP[quality] || MAP.poor;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '8px 18px', borderRadius: '20px', background: q.bg, border: `1px solid ${q.c}44` }}>
       <span style={{ fontFamily: 'var(--font-hud)', fontSize: '10px', fontWeight: '700', color: q.c, letterSpacing: '0.12em' }}>{q.label}</span>
-      {rms != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'rgba(255,255,255,0.3)' }}>RMS {rms.toFixed(3)}</span>}
+      {rms != null && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'rgba(var(--halo-rgb),0.3)' }}>RMS {rms.toFixed(3)}</span>}
     </div>
   );
 };
@@ -149,11 +150,11 @@ const SamplePips = ({ samples }) => (
         <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: s ? (good ? 'rgba(52,211,153,0.12)' : 'rgba(248,113,113,0.12)') : 'rgba(0,212,255,0.04)',
-            border: `2px solid ${s ? (good ? '#34d399' : '#f87171') : 'rgba(0,212,255,0.2)'}`,
-            boxShadow: s ? `0 0 12px ${good ? 'rgba(52,211,153,0.35)' : 'rgba(248,113,113,0.35)'}` : 'none',
+            background: s ? (good ? 'rgba(var(--green-rgb),0.12)' : 'rgba(var(--red-rgb),0.12)') : 'rgba(var(--cyan-rgb),0.04)',
+            border: `2px solid ${s ? (good ? 'var(--green)' : 'var(--red)') : 'rgba(var(--cyan-rgb),0.2)'}`,
+            boxShadow: s ? `0 0 12px ${good ? 'rgba(var(--green-rgb),0.35)' : 'rgba(var(--red-rgb),0.35)'}` : 'none',
             fontFamily: 'var(--font-hud)', fontSize: '14px',
-            color: s ? (good ? '#34d399' : '#f87171') : 'rgba(0,212,255,0.2)',
+            color: s ? (good ? 'var(--green)' : 'var(--red)') : 'rgba(var(--cyan-rgb),0.2)',
             transition: 'all 0.4s ease',
           }}>
             {s ? (good ? '✓' : '✗') : (i + 1)}
@@ -187,8 +188,8 @@ const PreviewBar = ({ onDone }) => {
         <span>MEMORIZE THE PHRASE</span>
         <span>{Math.ceil((1 - pct / 100) * PREVIEW_MS / 1000)}s</span>
       </div>
-      <div style={{ width: '100%', height: 3, background: 'rgba(0,212,255,0.1)', borderRadius: 2 }}>
-        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--cyan)', borderRadius: 2, boxShadow: '0 0 6px rgba(0,212,255,0.5)', transition: 'width 0.06s linear' }} />
+      <div style={{ width: '100%', height: 3, background: 'rgba(var(--cyan-rgb),0.1)', borderRadius: 2 }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: 'var(--cyan)', borderRadius: 2, boxShadow: '0 0 6px rgba(var(--cyan-rgb),0.5)', transition: 'width 0.06s linear' }} />
       </div>
     </div>
   );
@@ -260,7 +261,7 @@ const PhraseRecorder = ({ phraseIndex, retryCount, onComplete, onEnrollSample })
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <div style={{
           fontFamily: 'var(--font-hud)', fontSize: '10px', fontWeight: '700', letterSpacing: '0.2em',
-          color: isRecording ? '#f87171' : isCountdown ? '#fbbf24' : accepted ? '#34d399' : isResult ? '#f87171' : '#00d4ff',
+          color: isRecording ? 'var(--red)' : isCountdown ? 'var(--gold)' : accepted ? 'var(--green)' : isResult ? 'var(--red)' : 'var(--cyan)',
           textShadow: `0 0 10px currentColor`,
           animation: (isRecording || isCountdown) ? 'blink 0.7s ease-in-out infinite' : 'none',
         }}>
@@ -272,7 +273,7 @@ const PhraseRecorder = ({ phraseIndex, retryCount, onComplete, onEnrollSample })
           {isResult && !accepted && retryCount >= MAX_RETRIES - 1 && '◑  ACCEPTED (low quality)'}
         </div>
         {retryCount > 0 && (
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'rgba(248,113,113,0.7)', letterSpacing: '0.1em', border: '1px solid rgba(248,113,113,0.3)', borderRadius: '10px', padding: '2px 8px' }}>
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'rgba(var(--red-rgb),0.7)', letterSpacing: '0.1em', border: '1px solid rgba(var(--red-rgb),0.3)', borderRadius: '10px', padding: '2px 8px' }}>
             RETRY {retryCount}
           </div>
         )}
@@ -281,9 +282,9 @@ const PhraseRecorder = ({ phraseIndex, retryCount, onComplete, onEnrollSample })
       {/* Phrase box */}
       <div style={{
         width: '100%', padding: '20px 24px', textAlign: 'center', borderRadius: '6px',
-        border: `1px solid ${isRecording ? 'rgba(248,113,113,0.6)' : accepted ? 'rgba(52,211,153,0.5)' : 'rgba(0,212,255,0.4)'}`,
-        background: isRecording ? 'rgba(248,113,113,0.07)' : accepted ? 'rgba(52,211,153,0.06)' : 'rgba(0,212,255,0.05)',
-        boxShadow: isRecording ? '0 0 25px rgba(248,113,113,0.12)' : '0 0 15px rgba(0,212,255,0.06)',
+        border: `1px solid ${isRecording ? 'rgba(var(--red-rgb),0.6)' : accepted ? 'rgba(var(--green-rgb),0.5)' : 'rgba(var(--cyan-rgb),0.4)'}`,
+        background: isRecording ? 'rgba(var(--red-rgb),0.07)' : accepted ? 'rgba(var(--green-rgb),0.06)' : 'rgba(var(--cyan-rgb),0.05)',
+        boxShadow: isRecording ? '0 0 25px rgba(var(--red-rgb),0.12)' : '0 0 15px rgba(var(--cyan-rgb),0.06)',
         transition: 'all 0.3s',
       }}>
         <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', color: 'var(--text-muted)', letterSpacing: '0.15em', marginBottom: '8px' }}>
@@ -291,13 +292,13 @@ const PhraseRecorder = ({ phraseIndex, retryCount, onComplete, onEnrollSample })
         </div>
         <div style={{
           fontFamily: 'var(--font-mono)', fontSize: '17px', fontWeight: '700',
-          color: isRecording ? '#f87171' : accepted ? '#34d399' : '#00d4ff',
+          color: isRecording ? 'var(--red)' : accepted ? 'var(--green)' : 'var(--cyan)',
           letterSpacing: '0.03em', lineHeight: 1.5,
           textShadow: '0 0 10px currentColor',
         }}>
           "{phrase.text}"
         </div>
-        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: 'rgba(255,255,255,0.25)', marginTop: '8px', letterSpacing: '0.1em' }}>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: 'rgba(var(--halo-rgb),0.25)', marginTop: '8px', letterSpacing: '0.1em' }}>
           {phrase.hint}
         </div>
       </div>
@@ -312,7 +313,7 @@ const PhraseRecorder = ({ phraseIndex, retryCount, onComplete, onEnrollSample })
       {isRecording && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
           <RecordRing duration={RECORD_MS} />
-          <MicBars active={true} color="#f87171" />
+          <MicBars active={true} color="var(--red)" />
         </div>
       )}
 
@@ -461,7 +462,7 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
     for (let i = 0; i < 128; i++) avg[i] /= samples.length;
     try {
       stopCamera();
-      const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+      const SERVER_URL = import.meta.env.VITE_SERVER_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const res  = await fetch(`${SERVER_URL}/api/auth/enroll-face`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -485,7 +486,7 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px', width: '100%' }}>
-      <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', fontWeight: '700', color: '#00d4ff', letterSpacing: '0.2em' }}>
+      <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', fontWeight: '700', color: 'var(--cyan)', letterSpacing: '0.2em' }}>
         FACE BIOMETRIC ENROLLMENT
       </div>
 
@@ -495,8 +496,8 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
           <div style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: 'var(--text-muted)', letterSpacing: '0.15em', animation: 'blink 1.2s ease-in-out infinite' }}>
             LOADING FACE AI · STARTING CAMERA...
           </div>
-          <div style={{ width: '200px', height: '3px', background: 'rgba(0,212,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
-            <div style={{ height: '100%', background: '#00d4ff', borderRadius: 2, animation: 'loadBar 1.5s ease-in-out infinite' }} />
+          <div style={{ width: '200px', height: '3px', background: 'rgba(var(--cyan-rgb),0.1)', borderRadius: 2, overflow: 'hidden' }}>
+            <div style={{ height: '100%', background: 'var(--cyan)', borderRadius: 2, animation: 'loadBar 1.5s ease-in-out infinite' }} />
           </div>
           <style>{`@keyframes loadBar { 0%{width:0%;margin-left:0} 50%{width:60%;margin-left:20%} 100%{width:0%;margin-left:100%} }`}</style>
         </div>
@@ -507,7 +508,7 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '18px' }}>{currentAngle.icon}</span>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '10px', fontWeight: '700', color: '#00d4ff', letterSpacing: '0.15em' }}>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '10px', fontWeight: '700', color: 'var(--cyan)', letterSpacing: '0.15em' }}>
               {currentAngle.label}
             </div>
           </div>
@@ -521,10 +522,10 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
       <div style={{
         position: 'relative', width: '280px', height: '210px',
         borderRadius: '8px', overflow: 'hidden',
-        border: `1px solid ${flash ? '#34d399' : phase === 'capturing' ? 'rgba(0,212,255,0.5)' : 'rgba(0,212,255,0.15)'}`,
-        boxShadow: flash ? '0 0 30px rgba(52,211,153,0.5)' : '0 0 16px rgba(0,212,255,0.1)',
+        border: `1px solid ${flash ? 'var(--green)' : phase === 'capturing' ? 'rgba(var(--cyan-rgb),0.5)' : 'rgba(var(--cyan-rgb),0.15)'}`,
+        boxShadow: flash ? '0 0 30px rgba(var(--green-rgb),0.5)' : '0 0 16px rgba(var(--cyan-rgb),0.1)',
         transition: 'border-color 0.1s, box-shadow 0.1s',
-        background: '#000',
+        background: 'var(--bg-deep)',
         display: phase === 'done' || phase === 'error' ? 'none' : 'block',
       }}>
         <video
@@ -541,7 +542,7 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
 
         {phase === 'capturing' && (
           <>
-            {flash && <div style={{ position: 'absolute', inset: 0, background: 'rgba(52,211,153,0.22)', pointerEvents: 'none' }} />}
+            {flash && <div style={{ position: 'absolute', inset: 0, background: 'rgba(var(--green-rgb),0.22)', pointerEvents: 'none' }} />}
 
             {/* SVG face oval guide */}
             <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }} viewBox="0 0 280 210">
@@ -551,17 +552,17 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
                   <ellipse cx="140" cy="105" rx="76" ry="94" fill="black" />
                 </mask>
               </defs>
-              <rect width="280" height="210" fill="rgba(0,0,0,0.38)" mask="url(#ovalMask)" />
+              <rect width="280" height="210" mask="url(#ovalMask)" style={{ fill: 'rgba(var(--shadow-rgb),0.38)' }} />
               <ellipse cx="140" cy="105" rx="76" ry="94" fill="none"
-                stroke={flash ? '#34d399' : '#00d4ff'} strokeWidth="2.5"
+                strokeWidth="2.5" style={{ stroke: flash ? 'var(--green)' : 'var(--cyan)' }}
                 strokeDasharray={flash ? '0' : '10 5'} opacity="0.95" />
             </svg>
 
             {/* Scan line */}
-            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(0,212,255,0.07) 50%, transparent 60%)', animation: 'scanMove 2s linear infinite', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(var(--cyan-rgb),0.07) 50%, transparent 60%)', animation: 'scanMove 2s linear infinite', pointerEvents: 'none' }} />
 
             {/* Sample count badge */}
-            <div style={{ position: 'absolute', bottom: 6, right: 8, fontFamily: 'var(--font-hud)', fontSize: '9px', color: captureCount >= SAMPLES_PER_ANGLE ? '#34d399' : '#00d4ff', textShadow: '0 0 6px rgba(0,0,0,0.9)' }}>
+            <div style={{ position: 'absolute', bottom: 6, right: 8, fontFamily: 'var(--font-hud)', fontSize: '9px', color: captureCount >= SAMPLES_PER_ANGLE ? 'var(--green)' : 'var(--cyan)', textShadow: '0 0 6px rgba(var(--shadow-rgb),0.9)' }}>
               {captureCount}/{SAMPLES_PER_ANGLE}
             </div>
           </>
@@ -570,8 +571,8 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
         {/* Loading spinner inside box */}
         {phase === 'loading' && (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <div style={{ width: '32px', height: '32px', border: '2px solid rgba(0,212,255,0.15)', borderTop: '2px solid #00d4ff', borderRadius: '50%', animation: 'rotate 1s linear infinite' }} />
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'rgba(0,212,255,0.5)', letterSpacing: '0.15em' }}>LOADING AI...</div>
+            <div style={{ width: '32px', height: '32px', border: '2px solid rgba(var(--cyan-rgb),0.15)', borderTop: '2px solid var(--cyan)', borderRadius: '50%', animation: 'rotate 1s linear infinite' }} />
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'rgba(var(--cyan-rgb),0.5)', letterSpacing: '0.15em' }}>LOADING AI...</div>
           </div>
         )}
       </div>
@@ -582,7 +583,7 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             {ANGLE_STEPS.map((step, i) => {
               const done = i < angleIdx, active = i === angleIdx;
-              const clr  = done ? '#34d399' : active ? '#00d4ff' : 'rgba(255,255,255,0.12)';
+              const clr  = done ? 'var(--green)' : active ? 'var(--cyan)' : 'rgba(var(--halo-rgb),0.12)';
               return (
                 <div key={step.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
                   <div style={{ width: active ? 12 : 8, height: active ? 12 : 8, borderRadius: '50%', background: clr, boxShadow: active ? `0 0 8px ${clr}` : 'none', transition: 'all 0.3s' }} />
@@ -593,8 +594,8 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
           </div>
 
           <div style={{ width: '280px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ height: '4px', background: 'rgba(0,212,255,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-              <div style={{ height: '100%', borderRadius: 2, width: `${overallPct}%`, background: 'linear-gradient(90deg,#00d4ff,#34d399)', boxShadow: '0 0 8px rgba(0,212,255,0.5)', transition: 'width 0.3s' }} />
+            <div style={{ height: '4px', background: 'rgba(var(--cyan-rgb),0.08)', borderRadius: 2, overflow: 'hidden' }}>
+              <div style={{ height: '100%', borderRadius: 2, width: `${overallPct}%`, background: 'linear-gradient(90deg,var(--cyan),var(--green))', boxShadow: '0 0 8px rgba(var(--cyan-rgb),0.5)', transition: 'width 0.3s' }} />
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '0.1em' }}>
               <span>CAPTURING {totalCaptures}/{TOTAL_NEEDED}</span>
@@ -608,7 +609,7 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
       {phase === 'done' && (
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
           <div style={{ fontSize: '36px' }}>✅</div>
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', color: '#34d399', letterSpacing: '0.15em', textShadow: '0 0 10px rgba(52,211,153,0.6)' }}>FACE BIOMETRIC ENROLLED</div>
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', color: 'var(--green)', letterSpacing: '0.15em', textShadow: '0 0 10px rgba(var(--green-rgb),0.6)' }}>FACE BIOMETRIC ENROLLED</div>
           <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--text-muted)' }}>{totalCaptures} samples · {ANGLE_STEPS.length} angles</div>
         </div>
       )}
@@ -616,11 +617,11 @@ const FaceEnrollScreen = ({ onDone, onSkip }) => {
       {/* Error */}
       {phase === 'error' && (
         <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center' }}>
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: '#f87171' }}>FACE ENROLLMENT FAILED</div>
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: 'var(--red)' }}>FACE ENROLLMENT FAILED</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-muted)', maxWidth: '280px', lineHeight: 1.5 }}>{error}</div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={startCamera} style={{ padding: '8px 18px', background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.3)', borderRadius: '4px', color: '#00d4ff', fontFamily: 'var(--font-hud)', fontSize: '9px', cursor: 'pointer', letterSpacing: '0.12em' }}>RETRY</button>
-            <button onClick={onSkip} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '4px', color: 'var(--text-muted)', fontFamily: 'var(--font-hud)', fontSize: '9px', cursor: 'pointer', letterSpacing: '0.12em' }}>SKIP</button>
+            <button onClick={startCamera} style={{ padding: '8px 18px', background: 'rgba(var(--cyan-rgb),0.1)', border: '1px solid rgba(var(--cyan-rgb),0.3)', borderRadius: '4px', color: 'var(--cyan)', fontFamily: 'var(--font-hud)', fontSize: '9px', cursor: 'pointer', letterSpacing: '0.12em' }}>RETRY</button>
+            <button onClick={onSkip} style={{ padding: '8px 18px', background: 'transparent', border: '1px solid rgba(var(--halo-rgb),0.12)', borderRadius: '4px', color: 'var(--text-muted)', fontFamily: 'var(--font-hud)', fontSize: '9px', cursor: 'pointer', letterSpacing: '0.12em' }}>SKIP</button>
           </div>
         </div>
       )}
@@ -746,10 +747,10 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
   };
 
   // ── Layout ────────────────────────────────────────────────────────────────
-  const borderColor = done || stage === 'done' ? 'rgba(52,211,153,0.4)' : 'rgba(0,212,255,0.3)';
+  const borderColor = done || stage === 'done' ? 'rgba(var(--green-rgb),0.4)' : 'rgba(var(--cyan-rgb),0.3)';
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse at center, #000d1a 0%, #000810 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 9000, overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'radial-gradient(ellipse at center, var(--bg-dark) 0%, var(--bg-deep) 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 9000, overflow: 'hidden' }}>
       <ScanLine />
 
       {/* CSS for countdown pop */}
@@ -759,28 +760,28 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
       `}</style>
 
       {/* Ambient */}
-      <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)', width: '500px', height: '400px', background: `radial-gradient(ellipse, ${stage === 'done' ? 'rgba(52,211,153,0.07)' : 'rgba(0,212,255,0.05)'} 0%, transparent 70%)`, pointerEvents: 'none', transition: 'background 0.6s' }} />
+      <div style={{ position: 'absolute', top: '40%', left: '50%', transform: 'translate(-50%, -50%)', width: '500px', height: '400px', background: `radial-gradient(ellipse, ${stage === 'done' ? 'rgba(var(--green-rgb),0.07)' : 'rgba(var(--cyan-rgb),0.05)'} 0%, transparent 70%)`, pointerEvents: 'none', transition: 'background 0.6s' }} />
 
       {/* Panel */}
       <div style={{
         position: 'relative', width: 'min(560px, 93vw)',
         padding: '34px 36px 30px',
-        background: 'rgba(0, 14, 32, 0.94)',
+        background: 'rgba(var(--surface-1-rgb), 0.94)',
         backdropFilter: 'blur(24px)',
         border: `1px solid ${borderColor}`,
         borderRadius: '8px',
-        boxShadow: `0 0 60px ${stage === 'done' ? 'rgba(52,211,153,0.1)' : 'rgba(0,212,255,0.1)'}`,
+        boxShadow: `0 0 60px ${stage === 'done' ? 'rgba(var(--green-rgb),0.1)' : 'rgba(var(--cyan-rgb),0.1)'}`,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px',
         transition: 'border-color 0.4s, box-shadow 0.4s',
       }}>
-        <Corner color={stage === 'done' ? '#34d399' : '#00d4ff'} />
+        <Corner color={stage === 'done' ? 'var(--green)' : 'var(--cyan)'} />
 
         {/* Header */}
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', letterSpacing: '0.4em', color: 'var(--text-muted)', marginBottom: '6px' }}>
             STARK INDUSTRIES · JARVIS v5.0
           </div>
-          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '13px', fontWeight: '700', letterSpacing: '0.2em', color: stage === 'done' ? '#34d399' : '#00d4ff', textShadow: '0 0 12px currentColor' }}>
+          <div style={{ fontFamily: 'var(--font-hud)', fontSize: '13px', fontWeight: '700', letterSpacing: '0.2em', color: stage === 'done' ? 'var(--green)' : 'var(--cyan)', textShadow: '0 0 12px currentColor' }}>
             {stage === 'done' ? '✓ ENROLLMENT COMPLETE' : stage === 'face' ? 'FACE BIOMETRIC SETUP' : 'VOICE ENROLLMENT'}
           </div>
         </div>
@@ -792,13 +793,13 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
         {stage === 'welcome' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', width: '100%' }}>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: '12px', color: 'var(--text-dim)', textAlign: 'center', lineHeight: 1.7 }}>
-              I will record <strong style={{ color: '#00d4ff' }}>3 voice samples</strong> through your browser microphone.
+              I will record <strong style={{ color: 'var(--cyan)' }}>3 voice samples</strong> through your browser microphone.
               Speak each phrase clearly when prompted. Each phrase will be quality-checked and retried if unclear.
             </div>
             <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {PHRASES.map((p, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', border: '1px solid rgba(0,212,255,0.12)', borderRadius: '4px', background: 'rgba(0,212,255,0.03)' }}>
-                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: '#00d4ff', minWidth: '18px' }}>{i + 1}.</span>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 14px', border: '1px solid rgba(var(--cyan-rgb),0.12)', borderRadius: '4px', background: 'rgba(var(--cyan-rgb),0.03)' }}>
+                  <span style={{ fontFamily: 'var(--font-hud)', fontSize: '9px', color: 'var(--cyan)', minWidth: '18px' }}>{i + 1}.</span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-dim)' }}>"{p.text}"</span>
                 </div>
               ))}
@@ -806,7 +807,7 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
             <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '0.1em', textAlign: 'center' }}>
               YOU WILL HAVE 5 SECONDS TO READ EACH PHRASE BEFORE THE MIC OPENS
             </div>
-            <button onClick={() => setStage('voice')} id="start-enrollment-btn" style={{ padding: '12px 36px', background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.05))', border: '1px solid rgba(0,212,255,0.45)', borderRadius: '4px', color: '#00d4ff', fontFamily: 'var(--font-hud)', fontSize: '11px', fontWeight: '700', letterSpacing: '0.15em', cursor: 'pointer' }}>
+            <button onClick={() => setStage('voice')} id="start-enrollment-btn" style={{ padding: '12px 36px', background: 'linear-gradient(135deg, rgba(var(--cyan-rgb),0.15), rgba(var(--cyan-rgb),0.05))', border: '1px solid rgba(var(--cyan-rgb),0.45)', borderRadius: '4px', color: 'var(--cyan)', fontFamily: 'var(--font-hud)', fontSize: '11px', fontWeight: '700', letterSpacing: '0.15em', cursor: 'pointer' }}>
               BEGIN VOICE ENROLLMENT
             </button>
           </div>
@@ -826,7 +827,7 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
         {/* ── FINALIZING VOICE ── */}
         {stage === 'finalizing' && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '14px' }}>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', color: '#00d4ff', letterSpacing: '0.15em' }}>GENERATING VOICE SIGNATURE</div>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '11px', color: 'var(--cyan)', letterSpacing: '0.15em' }}>GENERATING VOICE SIGNATURE</div>
             <MicBars active={true} />
             <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '0.15em', animation: 'blink 1.2s ease-in-out infinite' }}>COMPUTING 256-DIM BIOMETRIC VECTOR...</div>
           </div>
@@ -838,7 +839,7 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
         {/* ── DONE ── */}
         {stage === 'done' && (
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '13px', fontWeight: '700', color: '#34d399', textShadow: '0 0 14px rgba(52,211,153,0.7)', letterSpacing: '0.12em' }}>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '13px', fontWeight: '700', color: 'var(--green)', textShadow: '0 0 14px rgba(var(--green-rgb),0.7)', letterSpacing: '0.12em' }}>
               ✓ BIOMETRIC PROFILE CREATED
             </div>
             <div style={{ fontFamily: 'var(--font-body)', fontSize: '11px', color: 'var(--text-muted)' }}>You are now the sole authorized user, sir.</div>
@@ -849,16 +850,16 @@ const EnrollmentFlow = ({ enrollmentStep, setEnrollmentStep, enrollSample, final
         {/* ── ERROR ── */}
         {error && (
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '10px', color: '#f87171', letterSpacing: '0.12em' }}>ENROLLMENT ERROR</div>
+            <div style={{ fontFamily: 'var(--font-hud)', fontSize: '10px', color: 'var(--red)', letterSpacing: '0.12em' }}>ENROLLMENT ERROR</div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-muted)' }}>{error}</div>
-            <button onClick={() => { setStage('welcome'); setError(''); setSamples({}); setCurrentPhrase(0); embeddingsRef.current = {}; }} style={{ padding: '8px 20px', background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.35)', borderRadius: '4px', color: '#f87171', fontFamily: 'var(--font-hud)', fontSize: '10px', cursor: 'pointer' }}>
+            <button onClick={() => { setStage('welcome'); setError(''); setSamples({}); setCurrentPhrase(0); embeddingsRef.current = {}; }} style={{ padding: '8px 20px', background: 'rgba(var(--red-rgb),0.1)', border: '1px solid rgba(var(--red-rgb),0.35)', borderRadius: '4px', color: 'var(--red)', fontFamily: 'var(--font-hud)', fontSize: '10px', cursor: 'pointer' }}>
               RETRY
             </button>
           </div>
         )}
 
         {/* Footer */}
-        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '7px', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.15)', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-hud)', fontSize: '7px', letterSpacing: '0.1em', color: 'rgba(var(--halo-rgb),0.15)', textAlign: 'center' }}>
           RESEMBLYZER VOICE ENGINE · FACE-API.JS · 256-DIM VOICE + 128-DIM FACE BIOMETRICS
         </div>
       </div>
