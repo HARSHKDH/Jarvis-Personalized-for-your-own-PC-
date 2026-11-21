@@ -5,11 +5,15 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
   const middleRingRef = useRef(null);
   const innerCoreRef = useRef(null);
 
+  // Palette is expressed as theme tokens so the reactor follows light/dark.
+  // NOTE: CSS var() is invalid inside SVG presentation attributes, so every
+  // ring inherits `currentColor` from the root <svg> (which sets `color` via
+  // style) and the core fills are bound through `style` instead of `fill=`.
   const COLORS = {
-    idle: { primary: '#00d4ff', core: '#00a8cc', glow: 'rgba(0,212,255,0.8)', accent: '#40e8ff' },
-    listening: { primary: '#00d4ff', core: '#00ffff', glow: 'rgba(0,255,255,1)', accent: '#80ffff' },
-    thinking: { primary: '#a78bfa', core: '#8b5cf6', glow: 'rgba(139,92,246,0.9)', accent: '#c4b5fd' },
-    speaking: { primary: '#ffffff', core: '#e0f4ff', glow: 'rgba(255,255,255,0.95)', accent: '#ffffff' },
+    idle:      { primary: 'var(--cyan)',   core: 'var(--reactor-core)', accent: 'var(--cyan-bright)' },
+    listening: { primary: 'var(--cyan)',   core: 'var(--cyan-bright)',  accent: 'var(--cyan-bright)' },
+    thinking:  { primary: 'var(--purple)', core: 'var(--purple)',       accent: 'var(--purple)' },
+    speaking:  { primary: 'var(--halo)',   core: 'var(--text)',         accent: 'var(--halo)' },
   };
 
   const colors = COLORS[state] || COLORS.idle;
@@ -55,13 +59,13 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       height={size}
       viewBox={`0 0 ${size} ${size}`}
       className={`arc-reactor-svg ${state}`}
-      style={{ animation: pulseAnimation }}
+      style={{ animation: pulseAnimation, color: colors.primary }}
     >
       <defs>
         <radialGradient id={`coreGrad-${state}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={colors.accent} stopOpacity="1" />
-          <stop offset="60%" stopColor={colors.primary} stopOpacity="0.9" />
-          <stop offset="100%" stopColor={colors.core} stopOpacity="0.5" />
+          <stop offset="0%" stopOpacity="1" style={{ stopColor: colors.accent }} />
+          <stop offset="60%" stopOpacity="0.9" style={{ stopColor: colors.primary }} />
+          <stop offset="100%" stopOpacity="0.5" style={{ stopColor: colors.core }} />
         </radialGradient>
         <filter id={`glow-${state}`}>
           <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -83,7 +87,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={outerR}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="1"
         strokeOpacity="0.3"
         style={{
@@ -97,7 +101,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={outerR - 2}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="2"
         strokeOpacity="0.8"
         strokeDasharray="60 10 30 10 60 10"
@@ -112,7 +116,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={outerR - 6}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="1"
         strokeOpacity="0.4"
         strokeDasharray="3 12"
@@ -126,7 +130,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={midR}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="3"
         strokeOpacity="0.9"
         strokeDasharray="40 8 20 8"
@@ -141,7 +145,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={midR - 6}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="1"
         strokeOpacity="0.3"
         strokeDasharray="4 8"
@@ -155,7 +159,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={innerR}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="1.5"
         strokeOpacity="0.6"
         strokeDasharray="2 6"
@@ -165,7 +169,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <polygon
         points={trianglePoints}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="1.5"
         strokeOpacity="0.7"
         filter={`url(#glow-${state})`}
@@ -175,7 +179,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <polygon
         points={innerTrianglePoints}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="1"
         strokeOpacity="0.5"
       />
@@ -191,7 +195,7 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       <circle
         cx={cx} cy={cy} r={coreR + 2}
         fill="none"
-        stroke={colors.primary}
+        stroke="currentColor"
         strokeWidth="2"
         strokeOpacity="0.8"
         filter={`url(#coreGlow-${state})`}
@@ -200,16 +204,16 @@ const ArcReactor = ({ size = 160, state = 'idle' }) => {
       {/* Center bright core */}
       <circle
         cx={cx} cy={cy} r={glowR}
-        fill={colors.accent}
         opacity="0.6"
         filter={`url(#coreGlow-${state})`}
+        style={{ fill: colors.accent }}
       />
 
       {/* Center dot */}
       <circle
         cx={cx} cy={cy} r={4}
-        fill="#ffffff"
         opacity="0.9"
+        style={{ fill: 'var(--halo)' }}
       />
     </svg>
   );

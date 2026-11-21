@@ -20,6 +20,12 @@ import urllib.parse
 # OPTIONAL IMPORTS — fail gracefully if not installed
 # ─────────────────────────────────────────────────────────────────────────────
 try:
+    import mss
+    MSS_AVAILABLE = True
+except ImportError:
+    MSS_AVAILABLE = False
+
+try:
     import pyautogui
     PYAUTOGUI_AVAILABLE = True
 except ImportError:
@@ -55,7 +61,7 @@ def get_desktop_path():
     """
     Returns the real Desktop path, handling OneDrive Desktop redirection.
     On Windows 11 with OneDrive enabled, Desktop is often at:
-      C:\Users\<user>\OneDrive\Desktop   (not C:\Users\<user>\Desktop)
+      C:/Users/<user>/OneDrive/Desktop   (not C:/Users/<user>/Desktop)
     """
     if IS_WINDOWS:
         # 1. Try reading from Windows registry (most reliable)
@@ -387,26 +393,107 @@ def action_run_command(target, details):
         return {"success": False, "message": str(e)}
 
 
-def action_take_screenshot(target, details):
-    """Take a screenshot and save to Desktop (handles OneDrive Desktop)."""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    desktop   = get_desktop_path()
-    filename  = f"JARVIS_screenshot_{timestamp}.png"
-    filepath  = desktop / filename
+def get_screenshots_folder():
+    """
+    Returns ~/JARVIS/Screenshots/, creating it if it doesn't exist.
+    Uses Path.home() so it works even when display name differs from folder name.
+    Falls back to Desktop if the JARVIS folder can't be created.
+    """
+    # Path.home() returns the real home dir (e.g. C:/Users/hkhan)
+    # regardless of what os.environ['USERNAME'] returns (e.g. 'Harsh')
+    screenshots_dir = Path.home() / 'JARVIS' / 'Screenshots'
+    try:
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
+        return screenshots_dir
+    except Exception:
+        # Fallback to Desktop if we can't create the JARVIS folder
+        return get_desktop_path()
 
-    # Method 1: pyautogui (best quality)
+
+def action_take_screenshot(target, details):
+    """
+    Take a full-screen screenshot.
+    Save location : C:/Users/{user}/JARVIS/Screenshots/
+    Filename      : screenshot_YYYY-MM-DD_HH-MM-SS.png
+    Returns       : {success, message, filename, path}
+    """
+    timestamp  = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    save_dir   = get_screenshots_folder()
+    filename   = f"screenshot_{timestamp}.png"
+    filepath   = save_dir / filename
+
+    def _notify(path_str: str, fname: str):
+        """Fire a Windows toast notification showing where the screenshot was saved."""
+        try:
+            ps = (
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$n = New-Object System.Windows.Forms.NotifyIcon; "
+                "$n.Icon = [System.Drawing.SystemIcons]::Information; "
+                "$n.Visible = $true; "
+                f"$n.ShowBalloonTip(6000, 'JARVIS — Screenshot Saved', "
+                f"'Saved: {fname}`n{path_str}', "
+                "[System.Windows.Forms.ToolTipIcon]::Info); "
+                "Start-Sleep -Seconds 7; "
+                "$n.Dispose()"
+            )
+            subprocess.Popen(
+                ['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+        except Exception:
+            pass  # Notification is best-effort — never block on it
+
+    def _success():
+        path_str = str(filepath).replace('/', '\\')
+        # Fire toast notification in background (non-blocking)
+        import threading
+        threading.Thread(target=_notify, args=(path_str, filename), daemon=True).start()
+        return {
+            "success": True,
+            "message": f"Screenshot saved to: {path_str}",
+            "filename": filename,
+            "path": str(filepath).replace('\\', '/'),
+        }
+
+
+    # Method 1: mss (fastest — works even with Electron overlay on top)
+    if MSS_AVAILABLE:
+        try:
+            with mss.MSS() as sct:
+                # Capture the primary monitor
+                monitor = sct.monitors[1]  # monitors[0] = all monitors combined; [1] = primary
+                img = sct.grab(monitor)
+                mss.tools.to_png(img.rgb, img.size, output=str(filepath))
+            if filepath.exists() and filepath.stat().st_size > 1000:
+                return _success()
+        except Exception:
+            pass
+
+    # Method 2: pyautogui
     if PYAUTOGUI_AVAILABLE:
         try:
             screenshot = pyautogui.screenshot()
             screenshot.save(str(filepath))
-            return {"success": True, "message": f"Screenshot saved to Desktop: {filename}", "path": str(filepath)}
+            if filepath.exists() and filepath.stat().st_size > 1000:
+                return _success()
         except Exception:
             pass
 
-    # Method 2: Windows PowerShell (no extra deps)
+    # Method 3: PIL ImageGrab (Windows only)
+    if PIL_AVAILABLE and IS_WINDOWS:
+        try:
+            from PIL import ImageGrab
+            screenshot = ImageGrab.grab()
+            screenshot.save(str(filepath))
+            if filepath.exists() and filepath.stat().st_size > 1000:
+                return _success()
+        except Exception:
+            pass
+
+    # Method 4: Windows PowerShell (no extra Python deps)
     if IS_WINDOWS:
         try:
-            safe_path = str(filepath).replace('\\', '\\\\')
+            safe_path = str(filepath).replace('\\', '/')
             ps_script = (
                 "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; "
                 "$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds; "
@@ -422,21 +509,14 @@ def action_take_screenshot(target, details):
                 capture_output=True, text=True, timeout=20
             )
             if filepath.exists() and filepath.stat().st_size > 1000:
-                return {"success": True, "message": f"Screenshot saved to Desktop: {filename}", "path": str(filepath)}
+                return _success()
         except Exception:
             pass
 
-    # Method 3: PIL ImageGrab
-    if PIL_AVAILABLE and IS_WINDOWS:
-        try:
-            from PIL import ImageGrab
-            screenshot = ImageGrab.grab()
-            screenshot.save(str(filepath))
-            return {"success": True, "message": f"Screenshot saved to Desktop: {filename}", "path": str(filepath)}
-        except Exception as e:
-            return {"success": False, "message": f"Screenshot failed: {str(e)}"}
-
-    return {"success": False, "message": "Screenshot unavailable. Install pyautogui: pip install pyautogui Pillow"}
+    return {
+        "success": False,
+        "message": "Screenshot failed: no screenshot library available. Run: pip install mss"
+    }
 
 
 def action_send_whatsapp(target, details):
@@ -665,6 +745,13 @@ def main():
     if len(sys.argv) < 2:
         print(json.dumps({"success": False, "message": "No payload provided"}))
         sys.exit(1)
+
+    # ── Bare keyword shortcut: python executor.py screenshot ──────────────────
+    # Allows quick CLI testing without building a full JSON payload.
+    if sys.argv[1].lower() == 'screenshot':
+        result = action_take_screenshot('', {})
+        print(json.dumps(result))
+        sys.exit(0 if result.get('success') else 1)
     
     try:
         payload = json.loads(sys.argv[1])

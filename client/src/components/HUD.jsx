@@ -61,7 +61,7 @@ const HUD = () => {
         transform: 'translate(-50%, -50%)',
         width: '600px',
         height: '400px',
-        background: 'radial-gradient(ellipse, rgba(0,212,255,0.04) 0%, transparent 70%)',
+        background: 'radial-gradient(ellipse, rgba(var(--cyan-rgb),0.04) 0%, transparent 70%)',
         pointerEvents: 'none',
         zIndex: 0,
       }} />

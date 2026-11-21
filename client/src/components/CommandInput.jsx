@@ -96,7 +96,7 @@ const CommandInput = () => {
 
         {/* Voice toggle */}
         <button
-          onClick={() => setVoiceEnabled(v => !v)}
+          onClick={() => setVoiceEnabled(!voiceEnabled)}
           title={voiceEnabled ? 'Disable voice output' : 'Enable voice output'}
           style={{
             background: 'transparent',

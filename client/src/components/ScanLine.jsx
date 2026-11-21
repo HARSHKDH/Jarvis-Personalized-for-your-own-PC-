@@ -10,7 +10,7 @@ const ScanLine = () => (
       left: 0,
       width: '100%',
       height: '2px',
-      background: 'linear-gradient(90deg, transparent 0%, rgba(0,212,255,0.3) 20%, rgba(0,212,255,0.8) 50%, rgba(0,212,255,0.3) 80%, transparent 100%)',
+      background: 'linear-gradient(90deg, transparent 0%, rgba(var(--cyan-rgb),0.3) 20%, rgba(var(--cyan-rgb),0.8) 50%, rgba(var(--cyan-rgb),0.3) 80%, transparent 100%)',
       pointerEvents: 'none',
       zIndex: 9999,
       animation: 'scanLine 8s linear infinite',
