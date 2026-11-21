@@ -12,6 +12,13 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const API_KEY = process.env.GEMINI_API_KEY || '';
 
+const TRANSCRIBE_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-8b',
+];
+
 router.post('/', async (req, res) => {
   const { audio, mimeType = 'audio/webm' } = req.body;
 
@@ -23,38 +30,45 @@ router.post('/', async (req, res) => {
     return res.status(503).json({ transcript: '', error: 'No GEMINI_API_KEY configured' });
   }
 
-  try {
-    const genAI = new GoogleGenerativeAI(API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+  const genAI = new GoogleGenerativeAI(API_KEY);
+  let lastErr;
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: audio,          // base64-encoded audio
-          mimeType: mimeType,   // audio/webm, audio/wav, etc.
+  for (const modelName of TRANSCRIBE_MODELS) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: audio,
+            mimeType: mimeType,
+          },
         },
-      },
-      // Prompt: just transcribe, nothing extra
-      'Transcribe exactly what is said in this short audio clip. ' +
-      'Return ONLY the raw spoken words in lowercase with no punctuation, ' +
-      'no explanation, no quotes. If there is silence or nothing intelligible, return exactly: [silence]',
-    ]);
+        'Transcribe exactly what is said in this short audio clip. ' +
+        'Return ONLY the raw spoken words in lowercase with no punctuation, ' +
+        'no explanation, no quotes. If there is silence or nothing intelligible, return exactly: [silence]',
+      ]);
 
-    let transcript = (result.response.text() || '').toLowerCase().trim();
+      let transcript = (result.response.text() || '').toLowerCase().trim();
+      if (transcript === '[silence]' || transcript === 'silence') transcript = '';
 
-    // Ignore silence markers
-    if (transcript === '[silence]' || transcript === 'silence') {
-      transcript = '';
+      console.log('[Transcribe] →', transcript || '(empty)', modelName !== TRANSCRIBE_MODELS[0] ? `(fallback: ${modelName})` : '');
+      return res.json({ transcript });
+
+    } catch (err) {
+      // Only retry on 503/overloaded — bail immediately for auth/400 errors
+      if (err.message && (err.message.includes('503') || err.message.includes('overloaded') || err.message.includes('Service Unavailable'))) {
+        console.warn(`[Transcribe] ${modelName} overloaded — trying next model...`);
+        lastErr = err;
+        continue;
+      }
+      // Non-retryable error
+      console.error('[Transcribe] Gemini error:', err.message);
+      return res.status(500).json({ transcript: '', error: err.message });
     }
-
-    console.log('[Transcribe] →', transcript || '(empty)');
-    return res.json({ transcript });
-
-  } catch (err) {
-    console.error('[Transcribe] Gemini error:', err.message);
-    // Return empty transcript (not an error) — VAD will just not trigger
-    return res.json({ transcript: '', error: err.message });
   }
+
+  console.error('[Transcribe] All models failed:', lastErr?.message);
+  return res.status(503).json({ transcript: '', error: 'All transcription models overloaded' });
 });
 
 module.exports = router;
