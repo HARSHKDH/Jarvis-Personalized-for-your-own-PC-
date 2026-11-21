@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useJarvisContext } from '../context/JarvisContext';
 import { useSystemStats } from '../hooks/useSystemStats';
+import ThemeToggle from './ThemeToggle';
 
 const EXPERT_LABELS = {
   jarvis: 'J.A.R.V.I.S.',
@@ -19,7 +20,10 @@ const StatusBar = () => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
+    const timer = setInterval(() => {
+      if (document.hidden) return;
+      setTime(new Date());
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -46,7 +50,7 @@ const StatusBar = () => {
         <span className="status-logo">◈ J.A.R.V.I.S.</span>
         <span style={{ color: 'var(--text-muted)', fontSize: '9px', letterSpacing: '0.1em' }}>v5.0.0</span>
         <span style={{ 
-          background: 'rgba(0,212,255,0.1)', 
+          background: 'rgba(var(--cyan-rgb),0.1)', 
           border: '1px solid var(--cyan-dim)', 
           color: 'var(--cyan)', 
           padding: '1px 8px', 
@@ -54,7 +58,7 @@ const StatusBar = () => {
           letterSpacing: '0.12em',
           borderRadius: '2px',
         }}>
-          MODE: {EXPERT_LABELS[expertId]?.toUpperCase()}
+          MODE: {(EXPERT_LABELS[expertId] || expertId || 'JARVIS').toUpperCase()}
         </span>
       </div>
 
@@ -102,6 +106,9 @@ const StatusBar = () => {
             {listening ? 'LISTENING' : speaking ? 'SPEAKING' : 'VOICE'}
           </span>
         </div>
+
+        {/* Light / dark theme */}
+        <ThemeToggle variant="inline" />
       </div>
     </div>
   );
