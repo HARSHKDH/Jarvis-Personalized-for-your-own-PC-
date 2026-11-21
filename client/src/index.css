@@ -5,28 +5,88 @@
 /* ── IMPORTS ── */
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap');
 
-/* ── CSS VARIABLES ── */
+/* ═══════════════════════════════════════════════════════════
+   THEME TOKENS  —  BEGIN
+   ───────────────────────────────────────────────────────────
+   Every colour in the app resolves back to one of the RGB
+   channel triplets below. Alpha tints are composed with
+   rgba(var(--x-rgb), a) so a single triplet override flips
+   the entire interface.
+
+   `:root` is the dark HUD (default). `[data-theme="light"]`
+   re-declares only the triplets + surfaces; all derived
+   tokens (--text-dim, --glow-md, …) follow automatically
+   because custom properties are substituted at use time.
+
+   Theme is applied by setting data-theme on <html>.
+   See src/utils/theme.js
+   ═══════════════════════════════════════════════════════════ */
+
 :root {
-  --cyan: #00d4ff;
+  color-scheme: dark;
+
+  /* ── Accent channels ── */
+  --cyan-rgb: 0, 212, 255;
+  --gold-rgb: 251, 191, 36;
+  --red-rgb: 248, 113, 113;
+  --green-rgb: 52, 211, 153;
+  --purple-rgb: 167, 139, 250;
+  --warn-rgb: 250, 204, 21;
+  --slate-rgb: 148, 163, 184;
+  --blue-rgb: 96, 165, 250;
+  --sky-rgb: 56, 189, 248;
+
+  /* ── Foreground / effect channels ── */
+  --text-rgb: 200, 240, 255;
+  --halo-rgb: 255, 255, 255;   /* "white" highlights & speaking glow */
+  --shadow-rgb: 0, 0, 0;       /* scrims & drop shadows */
+
+  /* ── Surface channels, deepest → lightest ── */
+  --surface-0-rgb: 0, 5, 18;    /* full-screen backdrops */
+  --surface-1-rgb: 0, 10, 26;   /* inputs, code blocks, cards */
+  --surface-2-rgb: 0, 20, 45;   /* panels, message bubbles */
+  --surface-3-rgb: 0, 30, 60;   /* raised / hover */
+  --surface-4-rgb: 0, 60, 120;  /* strongest lift */
+  --surface-warm-rgb: 35, 20, 2;    /* user bubble, gold-tinted cards */
+  --surface-danger-rgb: 25, 6, 6;   /* error-tinted cards */
+
+  /* ── Named colours derived from the channels ── */
+  --cyan: rgb(var(--cyan-rgb));
   --cyan-bright: #40e8ff;
-  --cyan-dim: rgba(0, 212, 255, 0.25);
-  --cyan-glow: rgba(0, 212, 255, 0.15);
-  --cyan-border: rgba(0, 212, 255, 0.4);
+  --cyan-dim: rgba(var(--cyan-rgb), 0.25);
+  --cyan-glow: rgba(var(--cyan-rgb), 0.15);
+  --cyan-border: rgba(var(--cyan-rgb), 0.4);
+  --gold: rgb(var(--gold-rgb));
+  --gold-dim: rgba(var(--gold-rgb), 0.3);
+  --red: rgb(var(--red-rgb));
+  --red-dim: rgba(var(--red-rgb), 0.2);
+  --green: rgb(var(--green-rgb));
+  --green-dim: rgba(var(--green-rgb), 0.2);
+  --purple: rgb(var(--purple-rgb));
+  --purple-dim: rgba(var(--purple-rgb), 0.2);
+  --warn: rgb(var(--warn-rgb));
+  --slate: rgb(var(--slate-rgb));
+  --blue: rgb(var(--blue-rgb));
+  --sky: rgb(var(--sky-rgb));
+  --halo: rgb(var(--halo-rgb));
+  --text: rgb(var(--text-rgb));
+  --text-dim: rgba(var(--text-rgb), 0.5);
+  --text-muted: rgba(var(--text-rgb), 0.3);
+
+  /* ── Backgrounds ── */
   --bg-deep: #000810;
   --bg-dark: #000d1a;
-  --bg-panel: rgba(0, 20, 45, 0.7);
-  --bg-panel-hover: rgba(0, 30, 60, 0.85);
-  --gold: #fbbf24;
-  --gold-dim: rgba(251, 191, 36, 0.3);
-  --red: #f87171;
-  --red-dim: rgba(248, 113, 113, 0.2);
-  --green: #34d399;
-  --green-dim: rgba(52, 211, 153, 0.2);
-  --purple: #a78bfa;
-  --purple-dim: rgba(167, 139, 250, 0.2);
-  --text: #c8f0ff;
-  --text-dim: rgba(200, 240, 255, 0.5);
-  --text-muted: rgba(200, 240, 255, 0.3);
+  --bg-boot: #000208;
+  --bg-panel: rgba(var(--surface-2-rgb), 0.7);
+  --bg-panel-hover: rgba(var(--surface-3-rgb), 0.85);
+  --scrim: rgba(var(--shadow-rgb), 0.6);
+
+  /* ── Arc reactor (SVG needs style-bound vars, not attributes) ── */
+  --reactor-primary: var(--cyan);
+  --reactor-core: #00a8cc;
+  --reactor-accent: var(--cyan-bright);
+
+  /* ── Non-colour tokens (theme-independent) ── */
   --font-hud: 'Orbitron', monospace;
   --font-mono: 'Share Tech Mono', monospace;
   --font-body: 'Inter', sans-serif;
@@ -35,10 +95,70 @@
   --radius: 4px;
   --radius-lg: 8px;
   --panel-border: 1px solid var(--cyan-border);
-  --glow-sm: 0 0 8px rgba(0, 212, 255, 0.3);
-  --glow-md: 0 0 20px rgba(0, 212, 255, 0.4), 0 0 40px rgba(0, 212, 255, 0.1);
-  --glow-lg: 0 0 30px rgba(0, 212, 255, 0.6), 0 0 60px rgba(0, 212, 255, 0.2);
+
+  /* ── Glows ── */
+  --glow-sm: 0 0 8px rgba(var(--cyan-rgb), 0.3);
+  --glow-md: 0 0 20px rgba(var(--cyan-rgb), 0.4), 0 0 40px rgba(var(--cyan-rgb), 0.1);
+  --glow-lg: 0 0 30px rgba(var(--cyan-rgb), 0.6), 0 0 60px rgba(var(--cyan-rgb), 0.2);
 }
+
+/* ───────────────────────────────────────────────────────────
+   LIGHT THEME — "daylight blueprint"
+   Accents are darkened so they stay legible on white, and the
+   neon glows become real drop shadows (glow reads as grime on
+   a light surface).
+   ─────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  color-scheme: light;
+
+  --cyan-rgb: 0, 112, 143;
+  --gold-rgb: 161, 98, 7;
+  --red-rgb: 185, 28, 28;
+  --green-rgb: 17, 116, 84;
+  --purple-rgb: 91, 61, 184;
+  --warn-rgb: 161, 98, 7;
+  --slate-rgb: 71, 85, 105;
+  --blue-rgb: 29, 78, 216;
+  --sky-rgb: 2, 102, 143;
+
+  --text-rgb: 13, 43, 62;
+  --halo-rgb: 0, 112, 143;
+  --shadow-rgb: 15, 42, 66;
+
+  --surface-0-rgb: 232, 240, 247;
+  --surface-1-rgb: 255, 255, 255;
+  --surface-2-rgb: 255, 255, 255;
+  --surface-3-rgb: 237, 245, 251;
+  --surface-4-rgb: 206, 228, 242;
+  --surface-warm-rgb: 255, 247, 229;
+  --surface-danger-rgb: 254, 240, 240;
+
+  --cyan-bright: #005873;
+
+  --cyan-dim: rgba(var(--cyan-rgb), 0.3);
+  --cyan-border: rgba(var(--cyan-rgb), 0.42);
+  /* Higher alphas than dark mode: the HUD leans on 9-10px uppercase labels,
+     and dark-on-white needs more weight than cyan-on-black to stay legible. */
+  --text-dim: rgba(var(--text-rgb), 0.86);
+  --text-muted: rgba(var(--text-rgb), 0.72);
+
+  --bg-deep: #e8f0f7;
+  --bg-dark: #dde9f2;
+  --bg-boot: #eef4f9;
+  --bg-panel: rgba(var(--surface-2-rgb), 0.78);
+  --bg-panel-hover: rgba(var(--surface-2-rgb), 0.95);
+  --scrim: rgba(var(--shadow-rgb), 0.35);
+
+  --reactor-core: #00617d;
+
+  --glow-sm: 0 1px 3px rgba(var(--shadow-rgb), 0.14);
+  --glow-md: 0 2px 10px rgba(var(--shadow-rgb), 0.16), 0 0 18px rgba(var(--cyan-rgb), 0.12);
+  --glow-lg: 0 4px 20px rgba(var(--shadow-rgb), 0.2), 0 0 30px rgba(var(--cyan-rgb), 0.18);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   THEME TOKENS  —  END
+   ═══════════════════════════════════════════════════════════ */
 
 /* ── RESET ── */
 *, *::before, *::after {
@@ -94,21 +214,21 @@ html, body {
 
 @keyframes arcPulse {
   0%, 100% { 
-    filter: drop-shadow(0 0 6px rgba(0, 212, 255, 0.8));
+    filter: drop-shadow(0 0 6px rgba(var(--cyan-rgb), 0.8));
   }
   50% { 
-    filter: drop-shadow(0 0 20px rgba(0, 212, 255, 1)) drop-shadow(0 0 40px rgba(0, 212, 255, 0.5));
+    filter: drop-shadow(0 0 20px rgba(var(--cyan-rgb), 1)) drop-shadow(0 0 40px rgba(var(--cyan-rgb), 0.5));
   }
 }
 
 @keyframes arcPulseGold {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.8)); }
-  50% { filter: drop-shadow(0 0 20px rgba(251, 191, 36, 1)); }
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(var(--gold-rgb), 0.8)); }
+  50% { filter: drop-shadow(0 0 20px rgba(var(--gold-rgb), 1)); }
 }
 
 @keyframes arcPulseWhite {
-  0%, 100% { filter: drop-shadow(0 0 6px rgba(255,255,255, 0.8)); }
-  50% { filter: drop-shadow(0 0 25px rgba(255,255,255, 1)); }
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(var(--halo-rgb), 0.8)); }
+  50% { filter: drop-shadow(0 0 25px rgba(var(--halo-rgb), 1)); }
 }
 
 @keyframes rotate {
@@ -230,9 +350,9 @@ html, body {
   -webkit-backdrop-filter: var(--blur);
   border: var(--panel-border);
   border-radius: var(--radius-lg);
-  box-shadow: var(--glow-sm), inset 0 0 20px rgba(0, 212, 255, 0.03);
+  box-shadow: var(--glow-sm), inset 0 0 20px rgba(var(--cyan-rgb), 0.03);
   position: relative;
-  overflow: hidden;
+  /* overflow removed here — each panel controls its own overflow */
 }
 
 .glass-panel::before {
@@ -315,11 +435,44 @@ html, body {
   position: relative;
 }
 
-.hud-statusbar { grid-area: statusbar; }
-.hud-left { grid-area: leftpanel; display: flex; flex-direction: column; gap: 6px; }
-.hud-chat { grid-area: chat; }
-.hud-right { grid-area: rightpanel; display: flex; flex-direction: column; gap: 6px; }
-.hud-input { grid-area: input; }
+.hud-statusbar { grid-area: statusbar; overflow: hidden; }
+
+/* Left/right panels: flex column, each child manages its own scroll */
+.hud-left {
+  grid-area: leftpanel;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;   /* allow flex children to shrink below content size */
+  overflow: hidden;
+}
+.hud-right {
+  grid-area: rightpanel;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Chat centre: must propagate its full height to ChatLog */
+.hud-chat {
+  grid-area: chat;
+  min-height: 0;    /* critical: without this the grid row height won't shrink */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+/* Make the ChatLog glass-panel fill the chat area and scroll internally */
+.hud-chat > .glass-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hud-input { grid-area: input; overflow: hidden; }
 
 /* ═══════════════════════════════════════════════════════════
    STATUS BAR
@@ -372,8 +525,10 @@ html, body {
    ═══════════════════════════════════════════════════════════ */
 
 .chat-log {
-  height: 100%;
+  flex: 1;
+  min-height: 0;       /* allow flex child to shrink below content height */
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -428,15 +583,15 @@ html, body {
 }
 
 .message-avatar.jarvis {
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--cyan-rgb), 0.1);
   color: var(--cyan);
   text-shadow: 0 0 8px var(--cyan);
 }
 
 .message-avatar.user {
-  background: rgba(251, 191, 36, 0.1);
+  background: rgba(var(--gold-rgb), 0.1);
   color: var(--gold);
-  border-color: rgba(251, 191, 36, 0.4);
+  border-color: rgba(var(--gold-rgb), 0.4);
 }
 
 .message-content {
@@ -455,14 +610,14 @@ html, body {
 }
 
 .message-body.jarvis {
-  background: rgba(0, 20, 45, 0.8);
+  background: rgba(var(--surface-2-rgb), 0.8);
   border-left: 3px solid var(--cyan);
   border: 1px solid var(--cyan-dim);
   border-left: 3px solid var(--cyan);
 }
 
 .message-body.user {
-  background: rgba(45, 20, 0, 0.6);
+  background: rgba(var(--surface-warm-rgb), 0.6);
   border-right: 3px solid var(--gold);
   border: 1px solid var(--gold-dim);
   border-right: 3px solid var(--gold);
@@ -497,8 +652,8 @@ html, body {
 .web-badge {
   padding: 1px 6px;
   border-radius: 2px;
-  background: rgba(167, 139, 250, 0.15);
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: rgba(var(--purple-rgb), 0.15);
+  border: 1px solid rgba(var(--purple-rgb), 0.3);
   color: var(--purple);
   font-size: 8px;
   letter-spacing: 0.05em;
@@ -560,7 +715,7 @@ html, body {
   margin: 8px 0;
 }
 .md-content .inline-code {
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--cyan-rgb), 0.1);
   border: 1px solid var(--cyan-dim);
   padding: 1px 5px;
   border-radius: 3px;
@@ -581,7 +736,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   padding: 6px 12px;
-  background: rgba(0, 212, 255, 0.08);
+  background: rgba(var(--cyan-rgb), 0.08);
   border-bottom: 1px solid var(--cyan-dim);
   font-family: var(--font-hud);
   font-size: 9px;
@@ -611,7 +766,7 @@ html, body {
 .code-block pre {
   padding: 12px;
   overflow-x: auto;
-  background: rgba(0, 0, 20, 0.8);
+  background: rgba(var(--surface-1-rgb), 0.8);
 }
 .code-block code {
   font-family: var(--font-mono);
@@ -626,7 +781,7 @@ html, body {
   gap: 6px;
   align-items: center;
   padding: 10px 14px;
-  background: rgba(0, 20, 45, 0.8);
+  background: rgba(var(--surface-2-rgb), 0.8);
   border: 1px solid var(--cyan-dim);
   border-left: 3px solid var(--cyan);
   border-radius: var(--radius-lg);
@@ -671,7 +826,7 @@ html, body {
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: rgba(0, 212, 255, 0.08);
+  background: rgba(var(--cyan-rgb), 0.08);
   border: 2px solid var(--cyan-border);
   display: flex;
   align-items: center;
@@ -683,23 +838,23 @@ html, body {
 }
 
 .mic-button:hover {
-  background: rgba(0, 212, 255, 0.15);
+  background: rgba(var(--cyan-rgb), 0.15);
   border-color: var(--cyan);
   box-shadow: var(--glow-md);
 }
 
 .mic-button.listening {
-  background: rgba(0, 212, 255, 0.2);
+  background: rgba(var(--cyan-rgb), 0.2);
   border-color: var(--cyan);
-  box-shadow: var(--glow-lg), inset 0 0 15px rgba(0, 212, 255, 0.1);
+  box-shadow: var(--glow-lg), inset 0 0 15px rgba(var(--cyan-rgb), 0.1);
   animation: glowPulse 1s ease-in-out infinite;
   color: var(--cyan);
 }
 
 .mic-button.wake-detected {
   border-color: var(--red);
-  box-shadow: 0 0 20px rgba(248, 113, 113, 0.6);
-  background: rgba(248, 113, 113, 0.15);
+  box-shadow: 0 0 20px rgba(var(--red-rgb), 0.6);
+  background: rgba(var(--red-rgb), 0.15);
   color: var(--red);
 }
 
@@ -712,7 +867,7 @@ html, body {
   width: 100%;
   height: 44px;
   padding: 0 14px;
-  background: rgba(0, 10, 30, 0.8);
+  background: rgba(var(--surface-1-rgb), 0.8);
   border: 1px solid var(--cyan-border);
   border-radius: var(--radius-lg);
   color: var(--text);
@@ -731,7 +886,7 @@ html, body {
 
 .command-input:focus {
   border-color: var(--cyan);
-  box-shadow: var(--glow-sm), 0 0 0 1px rgba(0, 212, 255, 0.1);
+  box-shadow: var(--glow-sm), 0 0 0 1px rgba(var(--cyan-rgb), 0.1);
 }
 
 .command-input.listening-active {
@@ -755,7 +910,7 @@ html, body {
 .send-button {
   height: 44px;
   padding: 0 20px;
-  background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 212, 255, 0.08));
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.2), rgba(var(--cyan-rgb), 0.08));
   border: 1px solid var(--cyan-border);
   border-radius: var(--radius-lg);
   color: var(--cyan);
@@ -772,7 +927,7 @@ html, body {
 }
 
 .send-button:hover {
-  background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(0, 212, 255, 0.15));
+  background: linear-gradient(135deg, rgba(var(--cyan-rgb), 0.3), rgba(var(--cyan-rgb), 0.15));
   border-color: var(--cyan);
   box-shadow: var(--glow-sm);
   transform: translateY(-1px);
@@ -800,20 +955,20 @@ html, body {
 }
 
 .arc-reactor-svg {
-  filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.6));
+  filter: drop-shadow(0 0 10px rgba(var(--cyan-rgb), 0.6));
   transition: filter 0.5s;
 }
 
 .arc-reactor-svg.thinking {
-  filter: drop-shadow(0 0 15px rgba(167, 139, 250, 0.8));
+  filter: drop-shadow(0 0 15px rgba(var(--purple-rgb), 0.8));
 }
 
 .arc-reactor-svg.speaking {
-  filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.9));
+  filter: drop-shadow(0 0 20px rgba(var(--halo-rgb), 0.9));
 }
 
 .arc-reactor-svg.listening {
-  filter: drop-shadow(0 0 18px rgba(0, 212, 255, 0.9));
+  filter: drop-shadow(0 0 18px rgba(var(--cyan-rgb), 0.9));
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -874,12 +1029,12 @@ html, body {
 }
 
 .expert-card:hover {
-  background: rgba(0, 212, 255, 0.06);
+  background: rgba(var(--cyan-rgb), 0.06);
   border-color: var(--cyan-dim);
 }
 
 .expert-card.selected {
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--cyan-rgb), 0.1);
   border-color: var(--cyan-border);
   box-shadow: var(--glow-sm);
 }
@@ -910,7 +1065,7 @@ html, body {
 
 .expert-card.selected .expert-card-name {
   color: var(--cyan);
-  text-shadow: 0 0 6px rgba(0, 212, 255, 0.5);
+  text-shadow: 0 0 6px rgba(var(--cyan-rgb), 0.5);
 }
 
 .expert-card-desc {
@@ -969,7 +1124,7 @@ html, body {
 .boot-screen {
   position: fixed;
   inset: 0;
-  background: #000208;
+  background: var(--bg-boot);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1023,7 +1178,7 @@ html, body {
 .boot-progress-bar {
   width: min(500px, 90vw);
   height: 3px;
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--cyan-rgb), 0.1);
   border-radius: 2px;
   margin-top: 24px;
   overflow: hidden;
@@ -1082,7 +1237,7 @@ html, body {
 
 .stat-bar {
   height: 3px;
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--cyan-rgb), 0.1);
   border-radius: 2px;
   margin: 0 12px 8px;
   overflow: hidden;
@@ -1108,7 +1263,7 @@ html, body {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  border-bottom: 1px solid rgba(0, 212, 255, 0.05);
+  border-bottom: 1px solid rgba(var(--cyan-rgb), 0.05);
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
@@ -1118,7 +1273,7 @@ html, body {
 
 .command-history-item:hover {
   color: var(--text);
-  background: rgba(0, 212, 255, 0.04);
+  background: rgba(var(--cyan-rgb), 0.04);
   padding-left: 16px;
 }
 
@@ -1144,13 +1299,90 @@ html, body {
 .z-10 { z-index: 10; }
 .pointer-events-none { pointer-events: none; }
 
+/* ═══════════════════════════════════════════════════════════
+   THEME TOGGLE
+   ═══════════════════════════════════════════════════════════ */
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 11px;
+  background: rgba(var(--cyan-rgb), 0.14);
+  border: 1px solid var(--cyan-border);
+  border-radius: 999px;
+  color: var(--cyan);
+  font-family: var(--font-hud);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+}
+
+.theme-toggle:hover {
+  background: rgba(var(--cyan-rgb), 0.26);
+  border-color: var(--cyan);
+  color: var(--cyan-bright);
+  box-shadow: var(--glow-md);
+}
+
+.theme-toggle:active {
+  transform: scale(0.96);
+}
+
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 3px;
+}
+
+.theme-toggle-icon {
+  display: flex;
+  align-items: center;
+}
+
+/* Used on boot / auth / enrollment, which have no StatusBar to dock into.
+   Deliberately loud: on those screens it is the only control on an otherwise
+   empty corner, and a 9px dim pill was impossible to spot. The z-index sits
+   above every overlay in the app (highest in-app value is 10000). */
+.theme-toggle.floating {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 2147483000;
+  padding: 10px 16px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  border-width: 2px;
+  color: var(--cyan-bright);
+  background: rgba(var(--surface-1-rgb), 0.92);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  box-shadow: 0 0 0 1px rgba(var(--cyan-rgb), 0.3), var(--glow-md);
+}
+
+.theme-toggle.floating:hover {
+  background: rgba(var(--surface-1-rgb), 0.99);
+  box-shadow: 0 0 0 1px rgba(var(--cyan-rgb), 0.5), var(--glow-lg);
+}
+
+/* Ease the palette flip on the large surfaces. Deliberately narrow: these
+   selectors declare no transition of their own, so nothing is clobbered and
+   the HUD's keyframe animations are left alone. */
+html, body, #root, .hud-root, .glass-panel {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+}
+
 /* Quick action buttons */
 .quick-action-btn {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: rgba(0, 212, 255, 0.05);
+  background: rgba(var(--cyan-rgb), 0.05);
   border: 1px solid var(--cyan-dim);
   border-radius: 3px;
   cursor: pointer;
@@ -1164,7 +1396,7 @@ html, body {
 }
 
 .quick-action-btn:hover {
-  background: rgba(0, 212, 255, 0.1);
+  background: rgba(var(--cyan-rgb), 0.1);
   border-color: var(--cyan-border);
   color: var(--cyan);
 }
