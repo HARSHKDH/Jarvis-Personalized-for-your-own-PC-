@@ -16,7 +16,7 @@ const getBarStyle = (index, state) => {
     return {
       ...base,
       height: `${6 + (index % 3) * 2}px`,
-      background: 'rgba(0, 212, 255, 0.2)',
+      background: 'rgba(var(--cyan-rgb), 0.2)',
       animation: `none`,
     };
   }
@@ -41,7 +41,7 @@ const getBarStyle = (index, state) => {
       ...base,
       height: `${wave}px`,
       background: 'var(--purple)',
-      boxShadow: '0 0 4px rgba(167,139,250,0.6)',
+      boxShadow: '0 0 4px rgba(var(--purple-rgb),0.6)',
       animation: `waveformBar ${1.2 + (index % 3) * 0.3}s ease-in-out infinite alternate`,
       animationDelay: `${delay}ms`,
     };
@@ -52,8 +52,8 @@ const getBarStyle = (index, state) => {
     return {
       ...base,
       height: `${height}px`,
-      background: 'linear-gradient(to top, var(--cyan), #ffffff)',
-      boxShadow: '0 0 8px rgba(255,255,255,0.5)',
+      background: 'linear-gradient(to top, var(--cyan), var(--halo))',
+      boxShadow: '0 0 8px rgba(var(--halo-rgb),0.5)',
       animation: `waveformBar ${0.2 + (index % 5) * 0.08}s ease-in-out infinite alternate`,
       animationDelay: `${delay}ms`,
     };
