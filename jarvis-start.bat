@@ -23,10 +23,9 @@ timeout /t 3 /nobreak > nul
 
 :: ── [3/3] Start Web Client ──────────────────────────────────────────
 :: NOTE: Open browser manually at http://localhost:5173
-:: The Vite dev server does NOT auto-open the browser (--open false)
-:: to prevent duplicate Chrome tabs alongside the Electron window.
+:: The Vite dev server does NOT auto-open the browser (open:false in vite.config.js)
 echo  [3/3] Starting JARVIS Web Client (port 5173)...
-start "JARVIS-Client" /min cmd /k "cd /d "%~dp0client" && npm run dev -- --open false"
+start "JARVIS-Client" /min cmd /k "cd /d "%~dp0client" && npm run dev"
 
 echo.
 echo  ╔══════════════════════════════════════════════╗
