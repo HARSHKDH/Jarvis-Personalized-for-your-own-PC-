@@ -1,0 +1,132 @@
+{
+  "chrome": {
+    "path": "C:/Program Files/Google/Chrome/Application/chrome.exe",
+    "process": "chrome.exe",
+    "aliases": [
+      "google chrome",
+      "browser",
+      "google"
+    ]
+  },
+  "vs code": {
+    "path": "C:/Users/{username}/AppData/Local/Programs/Microsoft VS Code/Code.exe",
+    "process": "Code.exe",
+    "aliases": [
+      "vscode",
+      "code editor",
+      "visual studio code",
+      "code"
+    ]
+  },
+  "spotify": {
+    "path": "C:/Users/{username}/AppData/Roaming/Spotify/Spotify.exe",
+    "process": "Spotify.exe",
+    "aliases": [
+      "music",
+      "spotify app"
+    ]
+  },
+  "whatsapp": {
+    "path": "C:/Users/{username}/AppData/Local/WhatsApp/WhatsApp.exe",
+    "process": "WhatsApp.exe",
+    "aliases": [
+      "whatsapp desktop",
+      "wa"
+    ]
+  },
+  "notepad": {
+    "path": "notepad.exe",
+    "process": "notepad.exe",
+    "aliases": [
+      "notes",
+      "text editor"
+    ]
+  },
+  "calculator": {
+    "path": "calc.exe",
+    "process": "CalculatorApp.exe",
+    "aliases": [
+      "calc"
+    ]
+  },
+  "file explorer": {
+    "path": "explorer.exe",
+    "process": "explorer.exe",
+    "aliases": [
+      "explorer",
+      "files",
+      "my computer"
+    ]
+  },
+  "task manager": {
+    "path": "taskmgr.exe",
+    "process": "Taskmgr.exe",
+    "aliases": [
+      "taskmanager"
+    ]
+  },
+  "vlc": {
+    "path": "C:/Program Files/VideoLAN/VLC/vlc.exe",
+    "process": "vlc.exe",
+    "aliases": [
+      "vlc player",
+      "media player"
+    ]
+  },
+  "word": {
+    "path": "C:/Program Files/Microsoft Office/root/Office16/WINWORD.EXE",
+    "process": "WINWORD.EXE",
+    "aliases": [
+      "microsoft word",
+      "ms word",
+      "document"
+    ]
+  },
+  "excel": {
+    "path": "C:/Program Files/Microsoft Office/root/Office16/EXCEL.EXE",
+    "process": "EXCEL.EXE",
+    "aliases": [
+      "microsoft excel",
+      "ms excel",
+      "spreadsheet"
+    ]
+  },
+  "powerpoint": {
+    "path": "C:/Program Files/Microsoft Office/root/Office16/POWERPNT.EXE",
+    "process": "POWERPNT.EXE",
+    "aliases": [
+      "microsoft powerpoint",
+      "ms powerpoint",
+      "ppt"
+    ]
+  },
+  "zoom": {
+    "path": "C:/Users/{username}/AppData/Roaming/Zoom/bin/Zoom.exe",
+    "process": "Zoom.exe",
+    "aliases": [
+      "zoom meeting",
+      "zoom call"
+    ]
+  },
+  "discord": {
+    "path": "C:/Users/{username}/AppData/Local/Discord/app-*/Discord.exe",
+    "process": "Discord.exe",
+    "aliases": [
+      "discord app"
+    ]
+  },
+  "telegram": {
+    "path": "C:/Users/{username}/AppData/Roaming/Telegram Desktop/Telegram.exe",
+    "process": "Telegram.exe",
+    "aliases": [
+      "telegram app"
+    ]
+  },
+  "postman": {
+    "path": "C:/Users/{username}/AppData/Local/Postman/Postman.exe",
+    "process": "Postman.exe",
+    "aliases": [
+      "api testing"
+    ]
+  }
+}

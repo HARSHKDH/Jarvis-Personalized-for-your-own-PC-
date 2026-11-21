@@ -10,14 +10,17 @@ let retryCount = 0;
 
 const connectDB = async () => {
   const uri = process.env.MONGODB_URI || 'mongodb://localhost:27017/jarvis';
+  const isAtlasSrv = uri.startsWith('mongodb+srv://');
 
   const options = {
     serverSelectionTimeoutMS: 10000,
     heartbeatFrequencyMS: 10000,
-    tls: true,
-    tlsAllowInvalidCertificates: true,
-    family: 4, // Force IPv4 — avoids SSL handshake issues on Windows
+    family: 4,
   };
+  if (isAtlasSrv) {
+    options.tls = true;
+    options.tlsAllowInvalidCertificates = true;
+  }
 
   try {
     const conn = await mongoose.connect(uri, options);

@@ -41,6 +41,8 @@
 | ⚡ **Real-time Sync** | Socket.io bidirectional communication — zero-latency responses |
 | 🪟 **Electron Overlay** | Floating always-on-top mini HUD on your desktop |
 | 🔐 **Secure Context** | Web Speech API via localhost HTTP server (works without keys) |
+| 🌗 **Light / Dark Theme** | One-click toggle on every screen, including boot and verification. Choice is remembered |
+| 🗂️ **System Folders** | Open *This PC*, *Recycle Bin*, *Control Panel*, *Network*, drives and more by voice |
 
 ---
 
@@ -337,6 +339,21 @@ Activate JARVIS by saying any of:
 "Open my resume from Documents"
 "Create a file called notes.txt with my meeting notes"
 ```
+
+### 🗂️ System Folders
+```
+"Open This PC"
+"Open the Recycle Bin"
+"Open Control Panel"
+"Open Network"
+"Show installed programs"
+"Open the C drive"
+"Open Program Files"
+```
+These open instantly through Windows shell locations rather than searching the disk.
+
+### 🌗 Theme
+Use the **Light Mode / Dark Mode** button in the top-right corner (or the status bar on the main HUD). It works on every screen and your choice is saved.
 
 ### 🖥️ System Control
 ```

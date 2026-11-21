@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('jarvisElectron', {
   // Tell main process to resize/reposition the window
   setState: (state) => ipcRenderer.send('set-state', state),
 
+  // Pop the native right-click context menu (Re-authenticate, etc.)
+  showContextMenu: () => ipcRenderer.send('show-context-menu'),
+
   // Listen for commands from main process (tray clicks, reauth etc.)
   on: (channel, fn) => {
     const allowed = ['cmd:reauth', 'cmd:tray-click', 'cmd:test-mic'];

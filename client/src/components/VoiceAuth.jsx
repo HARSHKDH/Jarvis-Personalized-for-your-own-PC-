@@ -21,7 +21,7 @@ const FaceVerifyWidget = ({ onAuthenticated, onError }) => {
     setFStatus('loading');
     try {
       // Fetch stored face descriptor
-      const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:5000';
+      const SERVER_URL = import.meta.env.VITE_SERVER_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
       const profileRes = await fetch(`${SERVER_URL}/api/auth/face-profile`);
       const profile = await profileRes.json();
       if (!profile.faceEnrolled || !profile.descriptor) {
@@ -112,13 +112,13 @@ const FaceVerifyWidget = ({ onAuthenticated, onError }) => {
   if (fStatus === 'no-profile') return null; // No face enrolled — don't show widget
 
   const statusMap = {
-    init:       { color: '#00d4ff', label: 'INITIALIZING...' },
-    loading:    { color: '#00d4ff', label: 'LOADING FACE AI...' },
-    scanning:   { color: '#fbbf24', label: 'SCANNING FACE...' },
-    match:      { color: '#34d399', label: '✓ FACE VERIFIED' },
-    nomatch:    { color: '#f87171', label: '✗ FACE NOT RECOGNIZED' },
-    'no-face':  { color: '#f87171', label: '✗ NO FACE DETECTED' },
-    error:      { color: '#f87171', label: '⚠ CAMERA ERROR' },
+    init:       { color: 'var(--cyan)', label: 'INITIALIZING...' },
+    loading:    { color: 'var(--cyan)', label: 'LOADING FACE AI...' },
+    scanning:   { color: 'var(--gold)', label: 'SCANNING FACE...' },
+    match:      { color: 'var(--green)', label: '✓ FACE VERIFIED' },
+    nomatch:    { color: 'var(--red)', label: '✗ FACE NOT RECOGNIZED' },
+    'no-face':  { color: 'var(--red)', label: '✗ NO FACE DETECTED' },
+    error:      { color: 'var(--red)', label: '⚠ CAMERA ERROR' },
   };
   const st = statusMap[fStatus] || statusMap.init;
   const canRetry = fStatus === 'nomatch' || fStatus === 'no-face' || fStatus === 'error';
@@ -126,15 +126,15 @@ const FaceVerifyWidget = ({ onAuthenticated, onError }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
       <div style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', letterSpacing: '0.2em', color: 'var(--text-muted)' }}>FACE BIOMETRIC</div>
-      <div style={{ position: 'relative', width: '160px', height: '120px', borderRadius: '6px', overflow: 'hidden', border: `1px solid ${st.color}44`, background: '#000' }}>
+      <div style={{ position: 'relative', width: '160px', height: '120px', borderRadius: '6px', overflow: 'hidden', border: `1px solid ${st.color}44`, background: 'var(--bg-deep)' }}>
         <video ref={videoRef} width={160} height={120} muted playsInline autoPlay style={{ objectFit: 'cover', transform: 'scaleX(-1)', opacity: (fStatus === 'scanning' || fStatus === 'match' || fStatus === 'nomatch') ? 1 : 0.3 }} />
         {/* Scan overlay */}
         {fStatus === 'scanning' && (
-          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(0,212,255,0.12) 50%, transparent 60%)', animation: 'faceScan 1.5s linear infinite' }} />
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(var(--cyan-rgb),0.12) 50%, transparent 60%)', animation: 'faceScan 1.5s linear infinite' }} />
         )}
         {/* Match/nomatch overlay */}
         {(fStatus === 'match' || fStatus === 'nomatch') && (
-          <div style={{ position: 'absolute', inset: 0, background: fStatus === 'match' ? 'rgba(52,211,153,0.2)' : 'rgba(248,113,113,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'absolute', inset: 0, background: fStatus === 'match' ? 'rgba(var(--green-rgb),0.2)' : 'rgba(var(--red-rgb),0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span style={{ fontSize: '32px' }}>{fStatus === 'match' ? '✓' : '✗'}</span>
           </div>
         )}
@@ -149,7 +149,7 @@ const FaceVerifyWidget = ({ onAuthenticated, onError }) => {
         {distance != null && <span style={{ marginLeft: '8px', opacity: 0.5, fontWeight: '400' }}>d={distance}</span>}
       </div>
       {canRetry && (
-        <button onClick={handleRetry} style={{ padding: '4px 14px', background: 'transparent', border: '1px solid rgba(0,212,255,0.3)', borderRadius: '3px', color: '#00d4ff', fontFamily: 'var(--font-hud)', fontSize: '8px', letterSpacing: '0.12em', cursor: 'pointer' }}>
+        <button onClick={handleRetry} style={{ padding: '4px 14px', background: 'transparent', border: '1px solid rgba(var(--cyan-rgb),0.3)', borderRadius: '3px', color: 'var(--cyan)', fontFamily: 'var(--font-hud)', fontSize: '8px', letterSpacing: '0.12em', cursor: 'pointer' }}>
           RETRY FACE SCAN
         </button>
       )}
@@ -176,15 +176,17 @@ const speak = (text) => {
 };
 
 // ─── Animated mic icon ───────────────────────────────────────────────────────
+// Colour is driven by `color` on the root + currentColor on the strokes, because
+// CSS var() is not valid inside SVG presentation attributes.
 const MicIcon = ({ active, size = 28 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    style={{ color: active ? 'var(--red)' : 'var(--cyan)' }}>
     <rect x="9" y="2" width="6" height="12" rx="3"
-      fill={active ? 'rgba(248,113,113,0.3)' : 'rgba(0,212,255,0.2)'}
-      stroke={active ? '#f87171' : '#00d4ff'} />
-    <path d="M19 10a7 7 0 0 1-14 0" stroke={active ? '#f87171' : '#00d4ff'} />
-    <line x1="12" y1="19" x2="12" y2="22" stroke={active ? '#f87171' : '#00d4ff'} />
-    <line x1="8" y1="22" x2="16" y2="22" stroke={active ? '#f87171' : '#00d4ff'} />
+      style={{ fill: active ? 'rgba(var(--red-rgb),0.3)' : 'rgba(var(--cyan-rgb),0.2)' }} />
+    <path d="M19 10a7 7 0 0 1-14 0" />
+    <line x1="12" y1="19" x2="12" y2="22" />
+    <line x1="8" y1="22" x2="16" y2="22" />
   </svg>
 );
 
@@ -192,14 +194,14 @@ const MicIcon = ({ active, size = 28 }) => (
 const ScoreBar = ({ score }) => {
   if (score === null || score === undefined) return null;
   const pct = Math.round(score * 100);
-  const color = score >= 0.75 ? '#34d399' : score >= 0.55 ? '#fbbf24' : '#f87171';
+  const color = score >= 0.75 ? 'var(--green)' : score >= 0.55 ? 'var(--gold)' : 'var(--red)';
   return (
     <div style={{ width: '260px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-hud)', fontSize: '9px', color: 'var(--text-muted)', marginBottom: '4px', letterSpacing: '0.1em' }}>
         <span>MATCH SCORE</span>
         <span style={{ color }}>{pct}%</span>
       </div>
-      <div style={{ height: '4px', background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden', border: '1px solid rgba(0,212,255,0.15)' }}>
+      <div style={{ height: '4px', background: 'rgba(var(--halo-rgb),0.05)', borderRadius: '2px', overflow: 'hidden', border: '1px solid rgba(var(--cyan-rgb),0.15)' }}>
         <div style={{ height: '100%', width: `${pct}%`, background: color, boxShadow: `0 0 8px ${color}`, borderRadius: '2px', transition: 'width 0.8s ease-out' }} />
       </div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -249,7 +251,7 @@ const RecordingCountdown = ({ active }) => {
       gap: '8px',
       fontFamily: 'var(--font-hud)',
       fontSize: '12px',
-      color: '#f87171',
+      color: 'var(--red)',
       letterSpacing: '0.15em',
       animation: 'blink 0.8s ease-in-out infinite',
     }}>
@@ -265,9 +267,9 @@ const AttemptPips = ({ attemptsLeft, max = 3 }) => (
     {Array.from({ length: max }, (_, i) => (
       <div key={i} style={{
         width: 10, height: 10, borderRadius: '50%',
-        background: i < attemptsLeft ? 'var(--green)' : 'rgba(255,255,255,0.1)',
+        background: i < attemptsLeft ? 'var(--green)' : 'rgba(var(--halo-rgb),0.1)',
         border: '1px solid',
-        borderColor: i < attemptsLeft ? 'var(--green)' : 'rgba(255,255,255,0.15)',
+        borderColor: i < attemptsLeft ? 'var(--green)' : 'rgba(var(--halo-rgb),0.15)',
         boxShadow: i < attemptsLeft ? '0 0 6px var(--green)' : 'none',
         transition: 'all 0.3s',
       }} />
@@ -337,11 +339,11 @@ const VoiceAuth = ({
     : 'idle';
 
   const statusColors = {
-    authenticated: { primary: '#34d399', glow: 'rgba(52,211,153,0.4)' },
-    denied: { primary: '#f87171', glow: 'rgba(248,113,113,0.4)' },
-    locked: { primary: '#f87171', glow: 'rgba(248,113,113,0.6)' },
-    authenticating: { primary: '#00d4ff', glow: 'rgba(0,212,255,0.25)' },
-    checking: { primary: '#00d4ff', glow: 'rgba(0,212,255,0.15)' },
+    authenticated: { primary: 'var(--green)', glow: 'rgba(var(--green-rgb),0.4)' },
+    denied: { primary: 'var(--red)', glow: 'rgba(var(--red-rgb),0.4)' },
+    locked: { primary: 'var(--red)', glow: 'rgba(var(--red-rgb),0.6)' },
+    authenticating: { primary: 'var(--cyan)', glow: 'rgba(var(--cyan-rgb),0.25)' },
+    checking: { primary: 'var(--cyan)', glow: 'rgba(var(--cyan-rgb),0.15)' },
   };
 
   const { primary: statusColor, glow: statusGlow } = statusColors[flashState || authStatus] || statusColors.authenticating;
@@ -357,8 +359,8 @@ const VoiceAuth = ({
     <div style={{
       position: 'fixed', inset: 0,
       background: authStatus === 'locked'
-        ? 'radial-gradient(ellipse at center, #1a0000 0%, #000810 100%)'
-        : 'radial-gradient(ellipse at center, #000d1a 0%, #000810 100%)',
+        ? 'radial-gradient(ellipse at center, rgb(var(--surface-danger-rgb)) 0%, var(--bg-deep) 100%)'
+        : 'radial-gradient(ellipse at center, var(--bg-dark) 0%, var(--bg-deep) 100%)',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -384,8 +386,8 @@ const VoiceAuth = ({
         <div style={{
           position: 'absolute', inset: 0,
           background: flashState === 'success'
-            ? 'rgba(52,211,153,0.08)'
-            : 'rgba(248,113,113,0.1)',
+            ? 'rgba(var(--green-rgb),0.08)'
+            : 'rgba(var(--red-rgb),0.1)',
           animation: 'fadeIn 0.2s ease-out',
           pointerEvents: 'none',
         }} />
@@ -396,11 +398,11 @@ const VoiceAuth = ({
         position: 'relative',
         width: 'min(440px, 90vw)',
         padding: '40px 36px',
-        background: 'rgba(0, 15, 35, 0.85)',
+        background: 'rgba(var(--surface-2-rgb), 0.85)',
         backdropFilter: 'blur(20px)',
         border: `1px solid ${statusColor}44`,
         borderRadius: '8px',
-        boxShadow: `0 0 40px ${statusGlow}, inset 0 0 30px rgba(0,212,255,0.02)`,
+        boxShadow: `0 0 40px ${statusGlow}, inset 0 0 30px rgba(var(--cyan-rgb),0.02)`,
         display: 'flex', flexDirection: 'column', alignItems: 'center',
         gap: '24px',
         transition: 'border-color 0.4s, box-shadow 0.4s',
@@ -439,7 +441,7 @@ const VoiceAuth = ({
           {authStatus === 'authenticating' && !isRecording && (
             <div style={{
               position: 'absolute', inset: -8,
-              border: '1px solid rgba(0,212,255,0.2)',
+              border: '1px solid rgba(var(--cyan-rgb),0.2)',
               borderTop: '1px solid var(--cyan)',
               borderRadius: '50%',
               animation: 'rotate 1s linear infinite',
@@ -463,9 +465,9 @@ const VoiceAuth = ({
             />
             {/* Divider */}
             <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ flex: 1, height: '1px', background: 'rgba(0,212,255,0.1)' }} />
+              <div style={{ flex: 1, height: '1px', background: 'rgba(var(--cyan-rgb),0.1)' }} />
               <span style={{ fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '0.15em' }}>OR VOICE</span>
-              <div style={{ flex: 1, height: '1px', background: 'rgba(0,212,255,0.1)' }} />
+              <div style={{ flex: 1, height: '1px', background: 'rgba(var(--cyan-rgb),0.1)' }} />
             </div>
             <StatusText color="var(--cyan)">SPEAK TO AUTHENTICATE</StatusText>
             <AttemptPips attemptsLeft={attemptsLeft} />
@@ -474,7 +476,7 @@ const VoiceAuth = ({
 
         {isRecording && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-            <StatusText color="#f87171">SCANNING VOCAL BIOMETRICS</StatusText>
+            <StatusText color="var(--red)">SCANNING VOCAL BIOMETRICS</StatusText>
             <RecordingCountdown active={isRecording} />
           </div>
         )}
@@ -488,7 +490,7 @@ const VoiceAuth = ({
 
         {authStatus === 'denied' && (
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <StatusText color="#f87171">UNRECOGNIZED VOICE SIGNATURE</StatusText>
+            <StatusText color="var(--red)">UNRECOGNIZED VOICE SIGNATURE</StatusText>
             <StatusText color="var(--text-muted)" small>ACCESS DENIED</StatusText>
             {score !== null && <ScoreBar score={score} />}
             <AttemptPips attemptsLeft={attemptsLeft} />
@@ -497,14 +499,14 @@ const VoiceAuth = ({
 
         {authStatus === 'locked' && (
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <StatusText color="#f87171">SECURITY LOCKOUT ACTIVE</StatusText>
+            <StatusText color="var(--red)">SECURITY LOCKOUT ACTIVE</StatusText>
             <div style={{
               fontFamily: 'var(--font-hud)',
               fontSize: '32px',
               fontWeight: '900',
-              color: '#f87171',
+              color: 'var(--red)',
               letterSpacing: '0.1em',
-              textShadow: '0 0 20px rgba(248,113,113,0.8)',
+              textShadow: '0 0 20px rgba(var(--red-rgb),0.8)',
               animation: 'blink 2s ease-in-out infinite',
             }}>
               {formatLockTime(lockTimeRemaining)}
@@ -515,7 +517,7 @@ const VoiceAuth = ({
 
         {authStatus === 'authenticated' && (
           <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <StatusText color="#34d399">BIOMETRIC CONFIRMED</StatusText>
+            <StatusText color="var(--green)">BIOMETRIC CONFIRMED</StatusText>
             <StatusText color="var(--text-muted)" small>
               WELCOME BACK, {(displayName || 'SIR').toUpperCase()}
             </StatusText>
@@ -530,7 +532,7 @@ const VoiceAuth = ({
             color: 'var(--text-muted)',
             textAlign: 'center',
             padding: '4px 8px',
-            border: '1px solid rgba(248,113,113,0.2)',
+            border: '1px solid rgba(var(--red-rgb),0.2)',
             borderRadius: '3px',
             maxWidth: '300px',
           }}>
@@ -547,12 +549,12 @@ const VoiceAuth = ({
               disabled={isRecording}
               style={{
                 width: '88px', height: '88px', borderRadius: '50%',
-                background: isRecording ? 'rgba(248,113,113,0.15)' : 'rgba(0,212,255,0.08)',
-                border: `2px solid ${isRecording ? '#f87171' : 'var(--cyan-border)'}`,
+                background: isRecording ? 'rgba(var(--red-rgb),0.15)' : 'rgba(var(--cyan-rgb),0.08)',
+                border: `2px solid ${isRecording ? 'var(--red)' : 'var(--cyan-border)'}`,
                 cursor: isRecording ? 'default' : 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'all 0.3s',
-                boxShadow: isRecording ? '0 0 30px rgba(248,113,113,0.5), inset 0 0 20px rgba(248,113,113,0.1)' : '0 0 20px rgba(0,212,255,0.2)',
+                boxShadow: isRecording ? '0 0 30px rgba(var(--red-rgb),0.5), inset 0 0 20px rgba(var(--red-rgb),0.1)' : '0 0 20px rgba(var(--cyan-rgb),0.2)',
                 animation: isRecording ? 'glowPulse 0.8s ease-in-out infinite' : 'none',
               }}
             >
@@ -561,7 +563,7 @@ const VoiceAuth = ({
             {/* Wake word indicator */}
             {isWakeWordListening && !isRecording && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'var(--font-hud)', fontSize: '8px', color: 'var(--text-muted)', letterSpacing: '0.12em' }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 6px #34d399', animation: 'blink 2s ease-in-out infinite' }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px var(--green)', animation: 'blink 2s ease-in-out infinite' }} />
                 SAY "HELLO JARVIS" TO AUTO-VERIFY
               </div>
             )}
@@ -598,12 +600,13 @@ const VoiceAuth = ({
               transition: 'all 0.2s',
               marginTop: '4px',
             }}
-            onMouseOver={e => e.target.style.color = '#f87171'}
+            onMouseOver={e => e.target.style.color = 'var(--red)'}
             onMouseOut={e => e.target.style.color = 'var(--text-muted)'}
           >
             RESET VOICE PROFILE & RE-ENROLL
           </button>
         )}
+
 
         {/* Footer */}
         <div style={{
