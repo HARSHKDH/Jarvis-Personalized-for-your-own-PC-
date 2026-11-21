@@ -53,9 +53,9 @@ const GreetingBubble = ({ success, displayName = 'Sir', onDone }) => {
     return () => clearTimeout(t);
   }, [anim, onDone]);
 
-  const color  = success ? '#34d399' : '#f87171';
-  const glow   = success ? 'rgba(52,211,153,0.18)' : 'rgba(248,113,113,0.18)';
-  const border = success ? 'rgba(52,211,153,0.28)' : 'rgba(248,113,113,0.28)';
+  const color  = success ? 'var(--green)' : 'var(--red)';
+  const glow   = success ? 'rgba(var(--green-rgb),0.18)' : 'rgba(var(--red-rgb),0.18)';
+  const border = success ? 'rgba(var(--green-rgb),0.28)' : 'rgba(var(--red-rgb),0.28)';
   const label  = success ? 'J.A.R.V.I.S' : 'ACCESS DENIED';
 
   // CSS values per phase
@@ -95,14 +95,14 @@ const GreetingBubble = ({ success, displayName = 'Sir', onDone }) => {
         {/* ── Bubble card ── */}
         <div style={{
           position: 'relative',
-          background: 'linear-gradient(135deg, rgba(6,12,26,0.97), rgba(0,8,20,0.98))',
+          background: 'linear-gradient(135deg, rgba(var(--surface-1-rgb),0.97), rgba(var(--surface-1-rgb),0.98))',
           border: `1px solid ${border}`,
           borderRadius: '16px 16px 4px 16px',
           padding: '14px 18px 14px 16px',
           minWidth: '240px',
           maxWidth: '310px',
           backdropFilter: 'blur(20px)',
-          boxShadow: `0 0 28px ${glow}, 0 16px 48px rgba(0,0,0,0.7)`,
+          boxShadow: `0 0 28px ${glow}, 0 16px 48px rgba(var(--shadow-rgb),0.7)`,
         }}>
           {/* Header row */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '9px', marginBottom: '9px' }}>
@@ -125,7 +125,7 @@ const GreetingBubble = ({ success, displayName = 'Sir', onDone }) => {
           <div style={{
             fontFamily: '"Courier New", monospace',
             fontSize: '12.5px',
-            color: 'rgba(255,255,255,0.86)',
+            color: 'rgba(var(--halo-rgb),0.86)',
             lineHeight: 1.55,
             minHeight: '19px',
           }}>
@@ -160,7 +160,7 @@ const GreetingBubble = ({ success, displayName = 'Sir', onDone }) => {
             position: 'absolute', bottom: -6, right: 19,
             width: 0, height: 0,
             borderLeft: '8px solid transparent',
-            borderTop: '8px solid rgba(6,12,26,0.97)',
+            borderTop: '8px solid rgba(var(--surface-1-rgb),0.97)',
           }} />
         </div>
       </div>
